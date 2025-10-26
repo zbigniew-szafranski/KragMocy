@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- Hero section ze zdjęciem -->
+<section class="hero-image">
+  <img src="{{ url_for('static', filename='images/krag4.png') }}"
+       alt="Kręgi Męskie w naturze"
+       class="img-fluid w-100">
+</section>
+
+<section id="krag" class="container my-5">
+
+
+
+  <h2>Kręgi Męskie</h2>
+  <p>Przestrzeń spotkań, zaufania i wspólnego rozwoju. W kręgu słuchamy, dzielimy się i wracamy do swojej wewnętrznej mocy.</p>
+
+  <div class="row mt-4">
+    <div class="col-md-6">
+      <h3>Czym jest Krąg Męski?</h3>
+      <p>Krąg Męski to bezpieczna przestrzeń, gdzie mężczyźni mogą autentycznie dzielić się swoimi doświadczeniami, wyzwaniami i emocjami. To miejsce, gdzie nie musisz się niczego obawiać – tutaj jesteś akceptowany taki, jaki jesteś.</p>
+    </div>
+    <div class="col-md-6">
+      <h3>Dlaczego warto?</h3>
+      <ul>
+        <li>Wsparcie innych mężczyzn w podobnej drodze</li>
+        <li>Przestrzeń bez osądzania</li>
+        <li>Rozwój osobisty i duchowy</li>
+        <li>Połączenie z naturą</li>
+        <li>Powrót do własnej mocy i autentyczności</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="mt-5">
+    <h3>Nadchodzące spotkania</h3>
+    <p>Zapraszamy do udziału w naszych spotkaniach. Szczegóły dostępne w zakładce <a href="#kontakt">Kontakt</a>.</p>
+  </div>
+      <!-- Licznik odliczający -->
+  <div class="countdown-section text-center mb-5">
+    <h2 class="mb-3">Najbliższe spotkanie</h2>
+    <p class="lead mb-4">Kolejny Krąg Męski za:</p>
+
+    <div class="countdown-timer">
+      <div class="countdown-item">
+        <span class="countdown-number" id="days">00</span>
+        <span class="countdown-label">Dni</span>
+      </div>
+      <div class="countdown-item">
+        <span class="countdown-number" id="hours">00</span>
+        <span class="countdown-label">Godzin</span>
+      </div>
+      <div class="countdown-item">
+        <span class="countdown-number" id="minutes">00</span>
+        <span class="countdown-label">Minut</span>
+      </div>
+      <div class="countdown-item">
+        <span class="countdown-number" id="seconds">00</span>
+        <span class="countdown-label">Sekund</span>
+      </div>
+    </div>
+
+    <p class="mt-4 event-date">📅 <strong id="event-date-display"></strong></p>
+      <!-- Faza Księżyca -->
+    <div class="moon-phase-section mt-4">
+      <h4 class="mb-3">Faza Księżyca w dniu wydarzenia</h4>
+      <div class="moon-phase-display">
+        <span class="moon-emoji">{{ moon_phase.emoji }}</span>
+        <div class="moon-info">
+          <p class="moon-name">{{ moon_phase.name }}</p>
+          <p class="moon-illumination">Oświetlenie: {{ moon_phase.illumination }}%</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,42 @@
+<div class="sticky-top-wrapper">
+  <header class="bg-dark text-white py-3 text-center">
+    <h1>Krąg Mocy</h1>
+    <p>Spotkania, równowaga i energia mężczyzn w naturze</p>
+  </header>
+
+  <nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <div class="container">
+      <a class="navbar-brand" href="{{ url_for('index') }}">🌿</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item">
+            <a class="nav-link {% if request.endpoint == 'index' %}active{% endif %}"
+               href="{{ url_for('index') }}">Kręgi Męskie</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if request.endpoint == 'wydarzenia' %}active{% endif %}"
+               href="{{ url_for('wydarzenia') }}">Wydarzenia</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if request.endpoint == 'olejki' %}active{% endif %}"
+               href="{{ url_for('olejki') }}">Olejki eteryczne</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if request.endpoint == 'woda' %}active{% endif %}"
+               href="{{ url_for('woda') }}">Woda wodorowa</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if request.endpoint == 'zielone' %}active{% endif %}"
+               href="{{ url_for('zielone') }}">Zielona żywność</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#kontakt">Kontakt</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+</div>

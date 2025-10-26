@@ -1,0 +1,163 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="container my-5">
+  <h2 class="mb-4">📅 Wydarzenia</h2>
+
+  <!-- Nadchodzące wydarzenia -->
+  {% if upcoming_events %}
+  <div class="mb-5">
+    <h3 class="mb-3">Nadchodzące wydarzenia</h3>
+
+    {% for event in upcoming_events %}
+    <div class="event-card upcoming mb-4 {% if event.is_full %}event-full{% endif %}">
+      <div class="event-content-wrapper">
+        <!-- Obrazek wydarzenia - mały, z lewej -->
+        {% if event.image %}
+        <div class="event-image-small">
+          <img src="{{ url_for('static', filename='images/' + event.image) }}"
+               alt="{{ event.title }}"
+               onerror="this.style.display='none'">
+        </div>
+        {% endif %}
+
+        <!-- Treść wydarzenia -->
+        <div class="event-content-main">
+          <div class="event-header">
+            <h4 class="event-title">{{ event.title }}</h4>
+            <div class="event-badges">
+              <span class="event-badge upcoming-badge">Nadchodzące</span>
+              {% if event.is_full %}
+              <span class="event-badge full-badge">Brak miejsc</span>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="event-body">
+            <div class="event-details-row">
+              <div class="event-detail">
+                <span class="event-icon">📅</span>
+                <div>
+                  <strong>Data:</strong>
+                  <p>{{ event.date.strftime('%A, %d %B %Y, godz. %H:%M') }}</p>
+                </div>
+              </div>
+
+              <div class="event-detail">
+                <span class="event-icon">📍</span>
+                <div>
+                  <strong>Miejsce:</strong>
+                  <p>{{ event.location }}</p>
+                </div>
+              </div>
+
+              <div class="event-detail">
+                <span class="event-icon">⏱️</span>
+                <div>
+                  <strong>Czas trwania:</strong>
+                  <p>{{ event.duration }}</p>
+                </div>
+              </div>
+
+              <div class="event-detail {% if event.spots_available <= 3 and event.spots_available > 0 %}spots-warning{% endif %} {% if event.is_full %}spots-full{% endif %}">
+                <span class="event-icon">👥</span>
+                <div>
+                  <strong>Dostępność miejsc:</strong>
+                  <p>
+                    {% if event.is_full %}
+                      <span class="text-danger">Brak wolnych miejsc ({{ event.spots_taken }}/{{ event.spots_total }})</span>
+                    {% elif event.spots_available <= 3 %}
+                      <span class="text-warning">Pozostało {{ event.spots_available }} z {{ event.spots_total }} miejsc</span>
+                    {% else %}
+                      <span class="text-success">{{ event.spots_available }} z {{ event.spots_total }} miejsc dostępnych</span>
+                    {% endif %}
+                  </p>
+                  <div class="spots-bar">
+                    <div class="spots-bar-filled" style="width: {{ (event.spots_taken / event.spots_total * 100)|round }}%"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="event-detail">
+                <span class="event-icon">{{ event.moon_phase.emoji }}</span>
+                <div>
+                  <strong>Faza Księżyca:</strong>
+                  <p>{{ event.moon_phase.name }} ({{ event.moon_phase.illumination }}%)</p>
+                </div>
+              </div>
+            </div>
+
+            <p class="event-description">{{ event.description }}</p>
+
+            {% if event.is_full %}
+            <button class="btn btn-secondary mt-3" disabled>Brak miejsc</button>
+            {% else %}
+            <a href="#kontakt" class="btn btn-primary mt-3">
+              Zapisz się ({{ event.spots_available }} {% if event.spots_available == 1 %}miejsce{% elif event.spots_available <= 4 %}miejsca{% else %}miejsc{% endif %} wolnych)
+            </a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="alert alert-info">
+    <strong>Brak nadchodzących wydarzeń.</strong> Wkrótce pojawią się nowe terminy!
+  </div>
+  {% endif %}
+
+  <!-- Przeszłe wydarzenia -->
+  {% if past_events %}
+  <div class="mt-5">
+    <h3 class="mb-3">Archiwum wydarzeń</h3>
+
+    {% for event in past_events %}
+    <div class="event-card past mb-4">
+      <div class="event-content-wrapper">
+        <!-- Obrazek wydarzenia - mały, z lewej -->
+        {% if event.image %}
+        <div class="event-image-small">
+          <img src="{{ url_for('static', filename='images/' + event.image) }}"
+               alt="{{ event.title }}"
+               onerror="this.style.display='none'">
+        </div>
+        {% endif %}
+
+        <!-- Treść wydarzenia -->
+        <div class="event-content-main">
+          <div class="event-header">
+            <h4 class="event-title">{{ event.title }}</h4>
+            <span class="event-badge past-badge">Zakończone</span>
+          </div>
+
+          <div class="event-body">
+            <div class="event-details-row">
+              <div class="event-detail">
+                <span class="event-icon">📅</span>
+                <div>
+                  <strong>Data:</strong>
+                  <p>{{ event.date.strftime('%A, %d %B %Y, godz. %H:%M') }}</p>
+                </div>
+              </div>
+
+              <div class="event-detail">
+                <span class="event-icon">📍</span>
+                <div>
+                  <strong>Miejsce:</strong>
+                  <p>{{ event.location }}</p>
+                </div>
+              </div>
+            </div>
+
+            <p class="event-description">{{ event.description }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</section>
+{% endblock %}
