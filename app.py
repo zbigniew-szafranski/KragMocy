@@ -2,6 +2,8 @@ from flask import Flask, render_template
 import ephem
 from datetime import datetime
 
+from openpyxl.styles.builtins import title
+
 app = Flask(__name__)
 
 
@@ -73,14 +75,14 @@ EVENTS = [
     },
     {
         'id': 2,
-        'title': 'Warsztaty Breathwork',
-        'date': datetime(2025, 12, 1, 10, 0, 0),
-        'location': 'Centrum Odnowy, Konstancin',
-        'description': 'Intensywna sesja pracy z oddechem. Odkryj moc świadomego oddychania i uwolnij nagromadzone napięcia.',
+        'title': 'Aromaterapia jako wsparcie dla ciała i ducha',
+        'date': datetime(2025, 12, 3, 18, 0, 0),
+        'location': 'Motylarnia, Długołęka, Wiejska 9',
+        'description': 'Odkryj moc czystych ekstaktów ziołowych zamkniętych w olejku eterycznym. Poznaj ich działanie dla ciała i ducha. Stwórz swoją własną kompozycję.',
         'duration': '2 godziny',
-        'spots_total': 8,
-        'spots_taken': 8,       # Pełne!
-        'image': None
+        'spots_total': 20,
+        'spots_taken': 0,
+        'image': 'air_doterra.jpg'
     },
     {
         'id': 3,
@@ -144,6 +146,10 @@ def olejki():
 @app.route('/woda')
 def woda():
     return render_template('woda.html', title='Woda Wodorowa')
+
+@app.route('/joga')
+def joga():
+    return render_template('joga.html', title='Joga')
 
 
 @app.route('/zielone')
