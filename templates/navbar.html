@@ -36,9 +36,10 @@
                 <a class="nav-link {% if request.endpoint == 'wydarzenia' %}active{% endif %}"
                    href="{{ url_for('wydarzenia') }}">Wydarzenia</a>
             </li>
+
             <li class="nav-item">
-            <a class="nav-link" href="#kontakt">Kontakt</a>
-          </li>
+                <a class="nav-link" href="{{ url_for('kontakt') }}">Kontakt</a>
+            </li>
         </ul>
       </div>
     </div>

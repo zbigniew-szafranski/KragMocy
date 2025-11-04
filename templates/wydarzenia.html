@@ -1,3 +1,4 @@
+
 {% extends 'base.html' %}
 
 {% block content %}
@@ -39,7 +40,7 @@
                 <span class="event-icon">📅</span>
                 <div>
                   <strong>Data:</strong>
-                  <p>{{ event.date.strftime('%A, %d %B %Y, godz. %H:%M') }}</p>
+                  <p>{{ event.date | polish_date }}</p>
                 </div>
               </div>
 
@@ -87,15 +88,20 @@
               </div>
             </div>
 
-            <p class="event-description">{{ event.description }}</p>
+            <!-- Skrócony opis - tylko pierwsza linia -->
+            <p class="event-description text-muted">{{ event.description | truncate(150) }}</p>
 
-            {% if event.is_full %}
-            <button class="btn btn-secondary mt-3" disabled>Brak miejsc</button>
-            {% else %}
-            <a href="#kontakt" class="btn btn-primary mt-3">
-              Zapisz się ({{ event.spots_available }} {% if event.spots_available == 1 %}miejsce{% elif event.spots_available <= 4 %}miejsca{% else %}miejsc{% endif %} wolnych)
-            </a>
-            {% endif %}
+            <div class="mt-3">
+              {% if event.is_full %}
+              <a href="{{ url_for('event_detail', event_id=event.id) }}" class="btn btn-outline-secondary">
+                Szczegóły wydarzenia
+              </a>
+              {% else %}
+              <a href="{{ url_for('event_detail', event_id=event.id) }}" class="btn btn-primary">
+                Szczegóły i zapis ({{ event.spots_available }} {% if event.spots_available == 1 %}miejsce{% elif event.spots_available <= 4 %}miejsca{% else %}miejsc{% endif %} wolnych)
+              </a>
+              {% endif %}
+            </div>
           </div>
         </div>
       </div>
@@ -138,7 +144,7 @@
                 <span class="event-icon">📅</span>
                 <div>
                   <strong>Data:</strong>
-                  <p>{{ event.date.strftime('%A, %d %B %Y, godz. %H:%M') }}</p>
+                  <p>{{ event.date | polish_date }}</p>
                 </div>
               </div>
 
@@ -151,7 +157,14 @@
               </div>
             </div>
 
-            <p class="event-description">{{ event.description }}</p>
+            <!-- Skrócony opis dla archiwum -->
+            <p class="event-description text-muted">{{ event.description | truncate(100) }}</p>
+
+            <div class="mt-3">
+              <a href="{{ url_for('event_detail', event_id=event.id) }}" class="btn btn-outline-secondary btn-sm">
+                Zobacz szczegóły
+              </a>
+            </div>
           </div>
         </div>
       </div>
