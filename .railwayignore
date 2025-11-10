@@ -1,0 +1,11 @@
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+__pycache__/
+*.pyc
+.venv/
+venv/
+.git/
+.idea/
+.vscode/
