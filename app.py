@@ -208,15 +208,15 @@ class ContactForm(FlaskForm):
     ])
     submit = SubmitField('Wyślij wiadomość')
 
-@app.route('/init-db-secret-endpoint-12345')
-def init_database():
-    """Inicjalizacja bazy danych - wywołaj raz po deploymencie"""
-    try:
-        with app.app_context():
-            db.create_all()
-        return "✅ Baza danych zainicjalizowana!", 200
-    except Exception as e:
-        return f"❌ Błąd: {str(e)}", 500
+# @app.route('/init-db-secret-endpoint-12345')
+# def init_database():
+#     """Inicjalizacja bazy danych - wywołaj raz po deploymencie"""
+#     try:
+#         with app.app_context():
+#             db.create_all()
+#         return "✅ Baza danych zainicjalizowana!", 200
+#     except Exception as e:
+#         return f"❌ Błąd: {str(e)}", 500
 
 
 def get_moon_phase(date):
