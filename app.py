@@ -1,7 +1,7 @@
-
 import logging
+
 logging.basicConfig()
-logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)  # Było 'aqlalchemy' - poprawione!
+logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 
 from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
@@ -16,47 +16,82 @@ import sqlite3
 import os
 
 app = Flask(__name__)
-try:
-    import config
 
-    # Dodaj timeout do URI SQLite
-    db_uri = config.SQLALCHEMY_DATABASE_URI
-    if 'sqlite' in db_uri:
-        db_uri += '?timeout=30' if '?' not in db_uri else '&timeout=30'
+# Załaduj konfigurację z zmiennych środowiskowych LUB z pliku config.py (lokalnie)
+if os.environ.get('RAILWAY_ENVIRONMENT'):
+    # Produkcja na Railway - użyj zmiennych środowiskowych
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('SQLALCHEMY_DATABASE_URI')
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = os.environ.get('SQLALCHEMY_TRACK_MODIFICATIONS', 'False') == 'True'
+    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
+    app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER')
+    app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
+    app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'True') == 'True'
+    app.config['MAIL_USE_SSL'] = os.environ.get('MAIL_USE_SSL', 'False') == 'True'
+    app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
+    app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
+    app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER')
+    app.config['MAIL_ADMIN'] = os.environ.get('MAIL_ADMIN')
+    app.config['REVOLUT_ME_LINK'] = os.environ.get('REVOLUT_ME_LINK')
+    app.config['REVOLUT_ACCOUNT_NAME'] = os.environ.get('REVOLUT_ACCOUNT_NAME')
 
-    app.config['SQLALCHEMY_DATABASE_URI'] = db_uri
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = config.SQLALCHEMY_TRACK_MODIFICATIONS
-    app.config['SECRET_KEY'] = config.SECRET_KEY
-
-    # Opcje dla lepszej obsługi SQLite
+    # Dla Railway - bez WAL mode i pool size
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
         'connect_args': {
             'check_same_thread': False,
-            'timeout': 30,
-            'isolation_level': None  # Autocommit mode
-        },
-        'pool_pre_ping': True,
-        'pool_recycle': 300,
-        'pool_size': 10,
-        'max_overflow': 20
+            'timeout': 30
+        }
     }
+else:
+    # Lokalnie - użyj config.py
+    try:
+        import config
 
-    app.config['MAIL_SERVER'] = config.MAIL_SERVER
-    app.config['MAIL_PORT'] = config.MAIL_PORT
-    app.config['MAIL_USE_TLS'] = config.MAIL_USE_TLS
-    app.config['MAIL_USE_SSL'] = config.MAIL_USE_SSL
-    app.config['MAIL_USERNAME'] = config.MAIL_USERNAME
-    app.config['MAIL_PASSWORD'] = config.MAIL_PASSWORD
-    app.config['MAIL_DEFAULT_SENDER'] = config.MAIL_DEFAULT_SENDER
-    app.config['MAIL_ADMIN'] = config.MAIL_ADMIN
-except ImportError:
-    print("⚠️  UWAGA: Brak pliku config.py!")
-    print("📝 Skopiuj config.example.py jako config.py i uzupełnij danymi")
-    raise
+        db_uri = config.SQLALCHEMY_DATABASE_URI
+        if 'sqlite' in db_uri and '?' not in db_uri:
+            db_uri += '?timeout=30'
+
+        app.config['SQLALCHEMY_DATABASE_URI'] = db_uri
+        app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = config.SQLALCHEMY_TRACK_MODIFICATIONS
+        app.config['SECRET_KEY'] = config.SECRET_KEY
+        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+            'connect_args': {
+                'check_same_thread': False,
+                'timeout': 30
+            },
+            'pool_pre_ping': True,
+            'pool_recycle': 300,
+            'pool_size': 1,
+            'max_overflow': 0
+        }
+        app.config['MAIL_SERVER'] = config.MAIL_SERVER
+        app.config['MAIL_PORT'] = config.MAIL_PORT
+        app.config['MAIL_USE_TLS'] = config.MAIL_USE_TLS
+        app.config['MAIL_USE_SSL'] = config.MAIL_USE_SSL
+        app.config['MAIL_USERNAME'] = config.MAIL_USERNAME
+        app.config['MAIL_PASSWORD'] = config.MAIL_PASSWORD
+        app.config['MAIL_DEFAULT_SENDER'] = config.MAIL_DEFAULT_SENDER
+        app.config['MAIL_ADMIN'] = config.MAIL_ADMIN
+        app.config['REVOLUT_ME_LINK'] = config.REVOLUT_ME_LINK
+        app.config['REVOLUT_ACCOUNT_NAME'] = config.REVOLUT_ACCOUNT_NAME
+    except ImportError:
+        print("⚠️  UWAGA: Brak pliku config.py i brak zmiennych środowiskowych!")
+        raise
 
 db = SQLAlchemy(app)
 mail = Mail(app)
 
+# Automatyczne zamykanie sesji
+@app.teardown_appcontext
+def shutdown_session(exception=None):
+    db.session.remove()
+
+# Inicjalizacja bazy przy starcie (tylko jeśli nie istnieje)
+with app.app_context():
+    try:
+        db.create_all()
+        print("✅ Baza danych zainicjalizowana")
+    except Exception as e:
+        print(f"⚠️ Błąd inicjalizacji bazy: {e}")
 
 # Włącz WAL mode dla SQLite (lepsza współbieżność)
 def init_sqlite_wal():
