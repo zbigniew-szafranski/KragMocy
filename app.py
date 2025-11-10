@@ -4,6 +4,14 @@ logging.basicConfig()
 logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 
 from flask import Flask, render_template, request, redirect, url_for, flash
+from flask_sqlalchemy import SQLAlchemy
+from flask_wtf import FlaskForm
+from flask_mail import Mail, Message
+from wtforms import StringField, TextAreaField, SubmitField, SelectMultipleField
+from wtforms.validators import DataRequired, Email, Length
+from wtforms.widgets import CheckboxInput, ListWidget
+import ephem
+from datetime import datetime
 import os
 
 app = Flask(__name__)
@@ -12,15 +20,16 @@ app = Flask(__name__)
 database_url = os.environ.get('DATABASE_URL')
 
 if database_url:
-    # PRODUKCJA - Railway
+    # PRODUKCJA - Railway (ma DATABASE_URL)
     print("🚀 Tryb produkcji - Railway")
 
+    # Railway czasem używa postgres://, a SQLAlchemy wymaga postgresql://
     if database_url.startswith('postgres://'):
         database_url = database_url.replace('postgres://', 'postgresql://', 1)
 
     app.config['SQLALCHEMY_DATABASE_URI'] = database_url
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'fallback-secret-key')
+    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'fallback-secret-key-change-this')
     app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
     app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
     app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'True') == 'True'
@@ -30,14 +39,16 @@ if database_url:
     app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER')
     app.config['MAIL_ADMIN'] = os.environ.get('MAIL_ADMIN')
 
+    # PostgreSQL - opcje połączenia
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
         'pool_pre_ping': True,
         'pool_recycle': 300,
     }
 
     print(f"✅ PostgreSQL skonfigurowany")
+    print(f"   Database: {database_url.split('@')[1] if '@' in database_url else 'hidden'}")
 else:
-    # LOKALNIE
+    # LOKALNIE - config.py
     print("💻 Tryb lokalny - config.py")
 
     try:
@@ -50,6 +61,8 @@ else:
         app.config['SQLALCHEMY_DATABASE_URI'] = db_uri
         app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = config.SQLALCHEMY_TRACK_MODIFICATIONS
         app.config['SECRET_KEY'] = config.SECRET_KEY
+
+        # SQLite - specjalne opcje
         app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
             'connect_args': {
                 'check_same_thread': False,
@@ -70,39 +83,16 @@ else:
         app.config['MAIL_DEFAULT_SENDER'] = config.MAIL_DEFAULT_SENDER
         app.config['MAIL_ADMIN'] = config.MAIL_ADMIN
 
-        print(f"✅ SQLite skonfigurowany")
+        print(f"✅ SQLite skonfigurowany: {db_uri}")
 
     except ImportError as e:
         print("⚠️  BŁĄD: Brak pliku config.py i brak DATABASE_URL!")
+        print("   Lokalnie: Stwórz plik config.py")
+        print("   Railway: Dodaj PostgreSQL database")
         raise RuntimeError("Brak konfiguracji bazy danych!") from e
 
-print("📦 Importuję SQLAlchemy...")
-from flask_sqlalchemy import SQLAlchemy
-
 db = SQLAlchemy(app)
-print("✅ SQLAlchemy zainicjalizowany")
-
-print("📧 Importuję Flask-Mail...")
-from flask_mail import Mail, Message
-
 mail = Mail(app)
-print("✅ Flask-Mail zainicjalizowany")
-
-print("📝 Importuję formularze...")
-from flask_wtf import FlaskForm
-from wtforms import StringField, TextAreaField, SubmitField, SelectMultipleField
-from wtforms.validators import DataRequired, Email, Length
-from wtforms.widgets import CheckboxInput, ListWidget
-
-print("✅ Formularze zaimportowane")
-
-print("🌙 Importuję ephem...")
-import ephem
-from datetime import datetime
-
-print("✅ Ephem zaimportowany")
-
-print("🏗️  Definiuję modele...")
 
 
 # Automatyczne zamykanie sesji
@@ -140,6 +130,7 @@ class Event(db.Model):
         return self.date <= datetime.now()
 
 
+# Model dla zapisów uczestników
 class Registration(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     event_id = db.Column(db.Integer, db.ForeignKey('event.id'), nullable=False)
@@ -153,23 +144,7 @@ class Registration(db.Model):
         return f'<Registration {self.name} -> {self.event.title}>'
 
 
-class ContactMessage(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    email = db.Column(db.String(120), nullable=False)
-    phone = db.Column(db.String(20), nullable=True)
-    topics = db.Column(db.String(200), nullable=False)
-    message = db.Column(db.Text, nullable=False)
-    sent_at = db.Column(db.DateTime, default=datetime.now)
-
-    def __repr__(self):
-        return f'<ContactMessage {self.name} - {self.topics}>'
-
-
-print("✅ Modele zdefiniowane")
-
-
-# Formularze
+# Formularz zapisu
 class RegistrationForm(FlaskForm):
     name = StringField('Imię i nazwisko', validators=[
         DataRequired(message='Pole wymagane'),
@@ -188,6 +163,20 @@ class RegistrationForm(FlaskForm):
     submit = SubmitField('Zapisz się')
 
 
+class ContactMessage(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(120), nullable=False)
+    phone = db.Column(db.String(20), nullable=True)
+    topics = db.Column(db.String(200), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    sent_at = db.Column(db.DateTime, default=datetime.now)
+
+    def __repr__(self):
+        return f'<ContactMessage {self.name} - {self.topics}>'
+
+
+# Widget dla checkboxów
 class MultiCheckboxField(SelectMultipleField):
     widget = ListWidget(prefix_label=False)
     option_widget = CheckboxInput()
@@ -219,42 +208,61 @@ class ContactForm(FlaskForm):
     ])
     submit = SubmitField('Wyślij wiadomość')
 
+@app.route('/init-db-secret-endpoint-12345')
+def init_database():
+    """Inicjalizacja bazy danych - wywołaj raz po deploymencie"""
+    try:
+        with app.app_context():
+            db.create_all()
+        return "✅ Baza danych zainicjalizowana!", 200
+    except Exception as e:
+        return f"❌ Błąd: {str(e)}", 500
 
-print("✅ Formularze zdefiniowane")
-print("🎯 Definiuję funkcje pomocnicze...")
 
-
-# Funkcje pomocnicze
 def get_moon_phase(date):
-    """Oblicza fazę Księżyca"""
+    """Oblicza fazę Księżyca dla danej daty"""
     moon = ephem.Moon(date)
     illumination = moon.moon_phase * 100
 
     if illumination < 1:
-        phase_name, emoji = "Nów", "🌑"
+        phase_name = "Nów"
+        emoji = "🌑"
     elif illumination < 25:
-        phase_name, emoji = "Przybywający sierp", "🌒"
+        phase_name = "Przybywający sierp"
+        emoji = "🌒"
     elif illumination < 45:
-        phase_name, emoji = "Pierwsza kwadra", "🌓"
+        phase_name = "Pierwsza kwadra"
+        emoji = "🌓"
     elif illumination < 55:
-        phase_name, emoji = "Przybywający garb", "🌔"
+        phase_name = "Przybywający garb"
+        emoji = "🌔"
     elif illumination < 99:
-        phase_name, emoji = "Pełnia", "🌕"
-    else:
-        phase_name, emoji = "Pełnia", "🌕"
+        phase_name = "Pełnia"
+        emoji = "🌕"
+    elif illumination >= 99:
+        phase_name = "Pełnia"
+        emoji = "🌕"
 
     next_day = ephem.Moon(ephem.Date(date) + 1)
     if next_day.moon_phase < moon.moon_phase:
         if 55 < illumination < 99:
-            phase_name, emoji = "Malejący garb", "🌖"
+            phase_name = "Malejący garb"
+            emoji = "🌖"
         elif 45 < illumination <= 55:
-            phase_name, emoji = "Ostatnia kwadra", "🌗"
+            phase_name = "Ostatnia kwadra"
+            emoji = "🌗"
         elif 25 < illumination <= 45:
-            phase_name, emoji = "Ostatnia kwadra", "🌗"
+            phase_name = "Ostatnia kwadra"
+            emoji = "🌗"
         elif 1 <= illumination <= 25:
-            phase_name, emoji = "Malejący sierp", "🌘"
+            phase_name = "Malejący sierp"
+            emoji = "🌘"
 
-    return {'emoji': emoji, 'name': phase_name, 'illumination': round(illumination, 1)}
+    return {
+        'emoji': emoji,
+        'name': phase_name,
+        'illumination': round(illumination, 1)
+    }
 
 
 def format_polish_date(date):
@@ -264,36 +272,185 @@ def format_polish_date(date):
         5: 'maja', 6: 'czerwca', 7: 'lipca', 8: 'sierpnia',
         9: 'września', 10: 'października', 11: 'listopada', 12: 'grudnia'
     }
+
     polish_days = {
         0: 'poniedziałek', 1: 'wtorek', 2: 'środa', 3: 'czwartek',
         4: 'piątek', 5: 'sobota', 6: 'niedziela'
     }
+
     day_name = polish_days[date.weekday()]
     month_name = polish_months[date.month]
+
     return f"{day_name}, {date.day} {month_name} {date.year}, godz. {date.strftime('%H:%M')}"
 
 
 def truncate_text(text, length=100):
-    """Obcina tekst"""
+    """Obcina tekst do określonej długości"""
     if len(text) <= length:
         return text
     return text[:length].rsplit(' ', 1)[0] + '...'
 
 
 def send_contact_email(contact_message):
-    """Wysyła email kontaktowy"""
-    # Implementacja bez zmian - skopiuj z poprzedniej wersji
-    pass
+    """Wysyła email z potwierdzeniem do klienta i powiadomienie do admina"""
+    topics_dict = {
+        'olejki': 'Olejki eteryczne',
+        'woda': 'Woda wodorowa',
+        'joga': 'Joga',
+        'zielone': 'Zielona żywność',
+        'kregi': 'Kręgi męskie',
+        'inne': 'Inne'
+    }
+
+    topics_list = contact_message.topics.split(', ') if contact_message.topics else []
+    topics_formatted = ', '.join([topics_dict.get(t, t) for t in topics_list])
+
+    # Email do klienta
+    try:
+        msg_client = Message(
+            subject='Potwierdzenie otrzymania wiadomości - Kręgi Męskie',
+            recipients=[contact_message.email],
+            body=f"""Witaj {contact_message.name},
+
+Dziękujemy za kontakt!
+
+Otrzymaliśmy Twoją wiadomość i odpowiemy najszybciej jak to możliwe.
+
+Podsumowanie:
+Tematy: {topics_formatted or 'Nie wybrano'}
+Wiadomość: {contact_message.message}
+
+Pozdrawiamy,
+Zespół Krąg Mocy
+"""
+        )
+        mail.send(msg_client)
+        print(f"✅ Email potwierdzający wysłany do: {contact_message.email}")
+    except Exception as e:
+        print(f"❌ Błąd wysyłania emaila do klienta: {e}")
+
+    # Email do admina
+    try:
+        msg_admin = Message(
+            subject=f'Nowa wiadomość kontaktowa od {contact_message.name}',
+            recipients=[app.config['MAIL_ADMIN']],
+            body=f"""Otrzymałeś nową wiadomość kontaktową:
+
+Od: {contact_message.name}
+Email: {contact_message.email}
+Telefon: {contact_message.phone or 'Nie podano'}
+Tematy: {topics_formatted or 'Nie wybrano'}
+
+Wiadomość:
+{contact_message.message}
+
+---
+Data wysłania: {contact_message.sent_at.strftime('%d.%m.%Y %H:%M')}
+"""
+        )
+        mail.send(msg_admin)
+        print(f"✅ Powiadomienie wysłane do admina")
+    except Exception as e:
+        print(f"❌ Błąd wysyłania emaila do admina: {e}")
 
 
 def send_registration_email(registration):
-    """Wysyła email z potwierdzeniem zapisu"""
-    # Implementacja bez zmian - skopiuj z poprzedniej wersji
-    pass
+    """Wysyła email z potwierdzeniem zapisu na wydarzenie"""
+    event = registration.event
+    moon_phase = get_moon_phase(event.date)
 
+    # Email do uczestnika
+    try:
+        html_body = f"""
+        <!DOCTYPE html>
+        <html lang="pl">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Potwierdzenie zapisu</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                <h1 style="color: #4CAF50; text-align: center;">✅ Potwierdzenie zapisu</h1>
 
-print("✅ Funkcje pomocnicze zdefiniowane")
-print("🌐 Rejestruję routes...")
+                <p>Witaj <strong>{registration.name}</strong>!</p>
+
+                <p>Dziękujemy za zapis na wydarzenie!</p>
+
+                <div style="background-color: #f5f5f5; padding: 20px; border-radius: 5px; margin: 20px 0;">
+                    <h2 style="color: #333; margin-top: 0;">🔥 {event.title}</h2>
+                    <p><strong>📅 Data:</strong> {format_polish_date(event.date)}</p>
+                    <p><strong>📍 Miejsce:</strong> {event.location}</p>
+                    <p><strong>⏱ Czas trwania:</strong> {event.duration}</p>
+                    <p><strong>🌙 Faza Księżyca:</strong> {moon_phase['emoji']} {moon_phase['name']}</p>
+                </div>
+
+                <div style="background-color: #e3f2fd; padding: 15px; border-left: 4px solid #2196F3; margin: 20px 0;">
+                    <h3 style="margin-top: 0;">Twoje dane:</h3>
+                    <p><strong>Imię i nazwisko:</strong> {registration.name}</p>
+                    <p><strong>Email:</strong> {registration.email}</p>
+                    {f"<p><strong>Telefon:</strong> {registration.phone}</p>" if registration.phone else ""}
+                </div>
+
+                <p style="text-align: center; margin-top: 30px;">
+                    W razie pytań skontaktuj się z nami.<br>
+                    Do zobaczenia!
+                </p>
+
+                <p style="text-align: center; color: #666; font-size: 12px; margin-top: 30px;">
+                    Zespół Kręgi Męskie<br>
+                    <em>Email wysłany automatycznie</em>
+                </p>
+            </div>
+        </body>
+        </html>
+        """
+
+        msg_participant = Message(
+            subject=f'Potwierdzenie zapisu: {event.title}',
+            recipients=[registration.email],
+            html=html_body
+        )
+        mail.send(msg_participant)
+        print(f"✅ Email potwierdzający wysłany do uczestnika: {registration.email}")
+    except Exception as e:
+        print(f"❌ Błąd wysyłania emaila do uczestnika: {e}")
+
+    # Email do admina
+    try:
+        msg_admin = Message(
+            subject=f'Nowy zapis na wydarzenie: {event.title}',
+            recipients=[app.config['MAIL_ADMIN']],
+            body=f"""Nowy uczestnik zapisał się na wydarzenie!
+
+📅 WYDARZENIE:
+━━━━━━━━━━━━━━━━━━━━━━
+{event.title}
+Data: {format_polish_date(event.date)}
+Miejsce: {event.location}
+
+👤 UCZESTNIK:
+━━━━━━━━━━━━━━━━━━━━━━
+Imię i nazwisko: {registration.name}
+Email: {registration.email}
+Telefon: {registration.phone or 'Nie podano'}
+{f"Wiadomość: {registration.message}" if registration.message else ""}
+
+📊 STAN ZAPISÓW:
+━━━━━━━━━━━━━━━━━━━━━━
+Zajęte miejsca: {event.spots_taken}/{event.spots_total}
+Wolne miejsca: {event.spots_available}
+{f"⚠️ UWAGA: Pozostało tylko {event.spots_available} miejsc!" if event.spots_available <= 3 else ""}
+{"🔴 PEŁNE - to było ostatnie miejsce!" if event.is_full else ""}
+
+---
+Data zapisu: {registration.registered_at.strftime('%d.%m.%Y %H:%M')}
+"""
+        )
+        mail.send(msg_admin)
+        print(f"✅ Powiadomienie o zapisie wysłane do admina")
+    except Exception as e:
+        print(f"❌ Błąd wysyłania emaila do admina: {e}")
 
 
 # Filtry Jinja2
@@ -316,33 +473,210 @@ def nl2br_filter(text):
 @app.template_filter('safe_html')
 def safe_html_filter(text):
     from markupsafe import Markup
-    return Markup(text.replace('\n', '<br>'))
+    text = text.replace('\n', '<br>')
+    return Markup(text)
 
 
-# ENDPOINT DO INICJALIZACJI BAZY
-@app.route('/init-db-secret-endpoint-12345')
-def init_database():
-    """Inicjalizacja bazy - wywołaj raz"""
-    try:
-        db.create_all()
-        return "✅ Baza danych zainicjalizowana!", 200
-    except Exception as e:
-        return f"❌ Błąd: {str(e)}", 500
-
-
-# Routes - TYLKO PODSTAWOWE NA START
+# Routes
 @app.route('/')
 def index():
-    return "✅ Aplikacja działa! Inicjalizuj bazę: /init-db-secret-endpoint-12345"
+    upcoming_events = Event.query.filter(Event.date > datetime.now()).order_by(Event.date).all()
+    next_event = upcoming_events[0] if upcoming_events else None
+
+    if next_event:
+        moon_phase = get_moon_phase(next_event.date)
+        event_date_str = next_event.date.strftime('%Y-%m-%dT%H:%M:%S')
+    else:
+        moon_phase = None
+        event_date_str = None
+
+    return render_template('index.html',
+                           title='Kręgi Męskie',
+                           event_date=event_date_str,
+                           moon_phase=moon_phase,
+                           next_event=next_event)
 
 
-@app.route('/test')
-def test():
-    return "✅ Test endpoint działa!"
+@app.route('/wydarzenia')
+def wydarzenia():
+    now = datetime.now()
+    upcoming = Event.query.filter(Event.date > now).order_by(Event.date).all()
+    past = Event.query.filter(Event.date <= now).order_by(Event.date.desc()).all()
+
+    for event in upcoming + past:
+        event.moon_phase = get_moon_phase(event.date)
+
+    return render_template('wydarzenia.html',
+                           title='Wydarzenia',
+                           upcoming_events=upcoming,
+                           past_events=past)
 
 
-print("✅ Routes zarejestrowane")
-print("🚀 Aplikacja gotowa do uruchomienia!")
+@app.route('/wydarzenie/<int:event_id>')
+def event_detail(event_id):
+    event = Event.query.get_or_404(event_id)
+    event.moon_phase = get_moon_phase(event.date)
+    form = RegistrationForm()
+
+    return render_template('event_detail.html',
+                           title=event.title,
+                           event=event,
+                           form=form)
+
+
+@app.route('/wydarzenie/<int:event_id>/zapis', methods=['POST'])
+def register_for_event(event_id):
+    """Obsługa zapisu na wydarzenie"""
+    form = RegistrationForm()
+
+    if form.validate_on_submit():
+        max_retries = 5
+        retry_delay = 0.5
+
+        for attempt in range(max_retries):
+            try:
+                event = Event.query.get_or_404(event_id)
+
+                if event.is_full:
+                    flash('Przepraszamy, brak wolnych miejsc na to wydarzenie.', 'error')
+                    return redirect(url_for('event_detail', event_id=event_id))
+
+                existing = Registration.query.filter_by(
+                    event_id=event_id,
+                    email=form.email.data
+                ).first()
+
+                if existing:
+                    flash('Jesteś już zapisany/a na to wydarzenie!', 'warning')
+                    return redirect(url_for('event_detail', event_id=event_id))
+
+                registration = Registration(
+                    event_id=event_id,
+                    name=form.name.data,
+                    email=form.email.data,
+                    phone=form.phone.data,
+                    message=form.message.data
+                )
+
+                event.spots_taken += 1
+
+                db.session.add(registration)
+                db.session.flush()
+                db.session.commit()
+
+                print(f"✅ Zapis do bazy udany (próba {attempt + 1})")
+
+                try:
+                    send_registration_email(registration)
+                except Exception as e:
+                    print(f"⚠️ Błąd wysyłania emaila: {e}")
+
+                flash(f'Dziękujemy! Zapisałeś/aś się na wydarzenie: {event.title}', 'success')
+                return redirect(url_for('registration_success', registration_id=registration.id))
+
+            except Exception as e:
+                db.session.rollback()
+                print(f"⚠️ Próba {attempt + 1}/{max_retries} nie powiodła się: {e}")
+
+                if attempt < max_retries - 1:
+                    import time
+                    time.sleep(retry_delay)
+                    retry_delay *= 2
+                    continue
+                else:
+                    flash('Wystąpił błąd podczas zapisu. Spróbuj ponownie za chwilę.', 'error')
+                    return redirect(url_for('event_detail', event_id=event_id))
+
+    for field, errors in form.errors.items():
+        for error in errors:
+            flash(f'{getattr(form, field).label.text}: {error}', 'error')
+
+    return redirect(url_for('event_detail', event_id=event_id))
+
+
+@app.route('/zapis-potwierdzony/<int:registration_id>')
+def registration_success(registration_id):
+    registration = Registration.query.get_or_404(registration_id)
+    return render_template('registration_success.html',
+                           title='Potwierdzenie zapisu',
+                           registration=registration)
+
+
+@app.route('/olejki')
+def olejki():
+    return render_template('olejki.html', title='Olejki Eteryczne')
+
+
+@app.route('/woda')
+def woda():
+    return render_template('woda.html', title='Woda Wodorowa')
+
+
+@app.route('/joga')
+def joga():
+    return render_template('joga.html', title='Joga')
+
+
+@app.route('/zielone')
+def zielone():
+    return render_template('zielone.html', title='Zielona Żywność')
+
+
+@app.route('/kontakt', methods=['GET', 'POST'])
+def kontakt():
+    form = ContactForm()
+
+    if form.validate_on_submit():
+        max_retries = 5
+        retry_delay = 0.5
+
+        for attempt in range(max_retries):
+            try:
+                topics_str = ', '.join(form.topics.data) if form.topics.data else ''
+
+                contact_message = ContactMessage(
+                    name=form.name.data,
+                    email=form.email.data,
+                    phone=form.phone.data,
+                    topics=topics_str,
+                    message=form.message.data
+                )
+
+                db.session.add(contact_message)
+                db.session.commit()
+                print(f"✅ Wiadomość zapisana (próba {attempt + 1})")
+
+                try:
+                    send_contact_email(contact_message)
+                except Exception as e:
+                    print(f"⚠️ Błąd wysyłania emaila: {e}")
+
+                flash('Dziękujemy za wiadomość! Odpowiemy wkrótce.', 'success')
+                return redirect(url_for('contact_success', message_id=contact_message.id))
+
+            except Exception as e:
+                db.session.rollback()
+                print(f"⚠️ Próba {attempt + 1}/{max_retries}: {e}")
+
+                if attempt < max_retries - 1:
+                    import time
+                    time.sleep(retry_delay)
+                    retry_delay *= 2
+                    continue
+                else:
+                    flash('Wystąpił błąd podczas zapisywania wiadomości. Spróbuj ponownie.', 'error')
+                    return render_template('kontakt.html', title='Kontakt', form=form)
+
+    return render_template('kontakt.html', title='Kontakt', form=form)
+
+
+@app.route('/wiadomosc-wyslana/<int:message_id>')
+def contact_success(message_id):
+    message = ContactMessage.query.get_or_404(message_id)
+    return render_template('contact_success.html',
+                           title='Wiadomość wysłana',
+                           message=message)
+
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
