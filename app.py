@@ -101,15 +101,6 @@ def shutdown_session(exception=None):
     db.session.remove()
 
 
-# Inicjalizacja bazy przy starcie
-with app.app_context():
-    try:
-        db.create_all()
-        print("✅ Baza danych zainicjalizowana")
-    except Exception as e:
-        print(f"⚠️ Błąd inicjalizacji bazy: {e}")
-
-
 # Model bazy danych dla wydarzeń
 class Event(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -216,6 +207,16 @@ class ContactForm(FlaskForm):
         Length(min=10, max=1000, message='Wiadomość musi mieć od 10 do 1000 znaków')
     ])
     submit = SubmitField('Wyślij wiadomość')
+
+@app.route('/init-db-secret-endpoint-12345')
+def init_database():
+    """Inicjalizacja bazy danych - wywołaj raz po deploymencie"""
+    try:
+        with app.app_context():
+            db.create_all()
+        return "✅ Baza danych zainicjalizowana!", 200
+    except Exception as e:
+        return f"❌ Błąd: {str(e)}", 500
 
 
 def get_moon_phase(date):
