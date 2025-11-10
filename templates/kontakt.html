@@ -1,0 +1,162 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container my-5">
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="text-center mb-5">
+                <h1 class="mb-3">📧 Kontakt</h1>
+                <p class="lead text-muted">
+                    Masz pytania? Chcesz dowiedzieć się więcej? Napisz do nas!
+                </p>
+            </div>
+
+            <div class="card shadow-lg">
+                <div class="card-body p-4">
+                    <form method="POST" action="{{ url_for('kontakt') }}">
+                        {{ form.hidden_tag() }}
+
+                        <!-- Imię i nazwisko -->
+                        <div class="mb-4">
+                            {{ form.name.label(class="form-label fw-bold") }}
+                            {{ form.name(class="form-control form-control-lg" + (" is-invalid" if form.name.errors else "")) }}
+                            {% if form.name.errors %}
+                                <div class="invalid-feedback">
+                                    {{ form.name.errors[0] }}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Email -->
+                        <div class="mb-4">
+                            {{ form.email.label(class="form-label fw-bold") }}
+                            {{ form.email(class="form-control form-control-lg" + (" is-invalid" if form.email.errors else ""), type="email") }}
+                            {% if form.email.errors %}
+                                <div class="invalid-feedback">
+                                    {{ form.email.errors[0] }}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Telefon -->
+                        <div class="mb-4">
+                            {{ form.phone.label(class="form-label fw-bold") }}
+                            {{ form.phone(class="form-control form-control-lg" + (" is-invalid" if form.phone.errors else "")) }}
+                            {% if form.phone.errors %}
+                                <div class="invalid-feedback">
+                                    {{ form.phone.errors[0] }}
+                                </div>
+                            {% endif %}
+                            <small class="text-muted">Podaj jeśli wolisz kontakt telefoniczny</small>
+                        </div>
+
+                        <!-- Tematy - Checkboxy -->                        <!-- Tematy - Checkboxy -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold d-block">
+                                {{ form.topics.label.text }} (opcjonalnie)
+                            </label>
+                            <div class="{% if form.topics.errors %}is-invalid{% endif %}">
+                                {% for choice in form.topics %}
+                                    <div class="form-check form-check-inline mb-2">
+                                        {{ choice(class="form-check-input") }}
+                                        {{ choice.label(class="form-check-label") }}
+                                    </div>
+                                {% endfor %}
+                            </div>
+                            {% if form.topics.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.topics.errors[0] }}
+                                </div>
+                            {% endif %}
+                            <small class="text-muted d-block mt-2">
+                                Zaznacz tematy, które Cię interesują (możesz wybrać kilka lub żadnego)
+                            </small>
+                        </div>
+
+                        <!-- Wiadomość -->
+                        <div class="mb-4">
+                            {{ form.message.label(class="form-label fw-bold") }}
+                            {{ form.message(class="form-control" + (" is-invalid" if form.message.errors else ""), rows="6") }}
+                            {% if form.message.errors %}
+                                <div class="invalid-feedback">
+                                    {{ form.message.errors[0] }}
+                                </div>
+                            {% endif %}
+                            <small class="text-muted">Opisz czego potrzebujesz lub jakie masz pytania</small>
+                        </div>
+
+                        <!-- Przycisk wyślij -->
+                        <div class="d-grid gap-2">
+                            {{ form.submit(class="btn btn-primary btn-lg") }}
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Dodatkowe informacje kontaktowe -->
+            <div class="row mt-5">
+                <div class="col-md-4 text-center mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <i class="bi bi-geo-alt text-primary" style="font-size: 2rem;"></i>
+                            <h5 class="mt-3">Adres</h5>
+                            <p class="text-muted mb-0">
+                                Motylarnia<br>
+                                Długołęka, Wiejska 9
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4 text-center mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <i class="bi bi-envelope text-primary" style="font-size: 2rem;"></i>
+                            <h5 class="mt-3">Email</h5>
+                            <p class="text-muted mb-0">
+                                kragmocy@gmail.com
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4 text-center mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <i class="bi bi-phone text-primary" style="font-size: 2rem;"></i>
+                            <h5 class="mt-3">Telefon</h5>
+                            <p class="text-muted mb-0">
+                                +48 881 957 757
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .form-check-inline {
+        margin-right: 1.5rem;
+        min-width: 150px;
+    }
+
+    .form-check-input:checked {
+        background-color: #0d6efd;
+        border-color: #0d6efd;
+    }
+</style>
+{% endblock %}

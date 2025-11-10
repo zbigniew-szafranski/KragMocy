@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-lg">
+                <div class="card-body text-center p-5">
+                    <div class="mb-4">
+                        <i class="bi bi-check-circle text-success" style="font-size: 5rem;"></i>
+                    </div>
+
+                    <h1 class="mb-3">Dziękujemy za zapis!</h1>
+
+                    <p class="lead mb-4">
+                        Twój zapis na wydarzenie został przyjęty.
+                    </p>
+
+                    <div class="card bg-light mb-4">
+                        <div class="card-body">
+                            <h4 class="card-title">{{ registration.event.title }}</h4>
+                            <p class="mb-2">
+                                <strong>📅 Data:</strong>
+                                {{ registration.event.date | polish_date }}
+                            </p>
+                            <p class="mb-2">
+                                <strong>📍 Miejsce:</strong>
+                                {{ registration.event.location }}
+                            </p>
+                            <p class="mb-2">
+                                <strong>⏱️ Czas trwania:</strong>
+                                {{ registration.event.duration }}
+                            </p>
+                            <hr>
+                            <p class="mb-0">
+                                <strong>👤 Uczestnik:</strong>
+                                {{ registration.name }}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="bi bi-envelope"></i>
+                        Potwierdzenie zapisu zostało wysłane na adres: <strong>{{ registration.email }}</strong>
+                    </div>
+
+                    <div class="alert alert-warning">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>Ważne:</strong> Sprawdź folder SPAM jeśli nie widzisz emaila w skrzynce odbiorczej.
+                    </div>
+
+                    <div class="mt-4">
+                        <a href="{{ url_for('wydarzenia') }}" class="btn btn-primary me-2">
+                            Zobacz inne wydarzenia
+                        </a>
+                        <a href="{{ url_for('index') }}" class="btn btn-secondary">
+                            Strona główna
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

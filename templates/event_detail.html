@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container my-5">
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="row">
+        <!-- Lewa kolumna - szczegóły wydarzenia -->
+        <div class="col-lg-7 mb-4">
+            {% if event.image %}
+                <img src="{{ url_for('static', filename='images/' + event.image) }}"
+                     class="img-fluid rounded mb-4"
+                     alt="{{ event.title }}">
+            {% endif %}
+
+            <h1 class="mb-3">{{ event.title }}</h1>
+
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="bi bi-calendar-event"></i> Szczegóły wydarzenia
+                    </h5>
+
+                    <p class="mb-2">
+                        <strong><i class="bi bi-clock"></i> Data:</strong>
+                        {{ event.date | polish_date }}
+                    </p>
+
+                    <p class="mb-2">
+                        <strong><i class="bi bi-geo-alt"></i> Miejsce:</strong>
+                        {{ event.location }}
+                    </p>
+
+                    <p class="mb-2">
+                        <strong><i class="bi bi-hourglass-split"></i> Czas trwania:</strong>
+                        {{ event.duration }}
+                    </p>
+
+                    <p class="mb-2">
+                        <strong><i class="bi bi-people"></i> Miejsca:</strong>
+                        {% if event.is_full %}
+                            <span class="badge bg-danger">Brak wolnych miejsc</span>
+                        {% else %}
+                            <span class="badge bg-success">
+                                Wolne: {{ event.spots_available }} / {{ event.spots_total }}
+                            </span>
+                        {% endif %}
+                    </p>
+
+                    <p class="mb-0">
+                        <strong><i class="bi bi-moon"></i> Faza Księżyca:</strong>
+                        {{ event.moon_phase.emoji }} {{ event.moon_phase.name }}
+                        ({{ event.moon_phase.illumination }}%)
+                    </p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Opis</h5>
+                    <p class="card-text">{{ event.description | safe_html }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Prawa kolumna - formularz zapisu -->
+        <div class="col-lg-5">
+            <div class="card shadow-sm sticky-top" style="top: 20px;">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Zapisz się na wydarzenie</h4>
+                </div>
+                <div class="card-body">
+                    {% if event.is_past %}
+                        <div class="alert alert-secondary">
+                            <i class="bi bi-info-circle"></i>
+                            To wydarzenie już się odbyło.
+                        </div>
+                    {% elif event.is_full %}
+                        <div class="alert alert-danger">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            Brak wolnych miejsc na to wydarzenie.
+                        </div>
+                    {% else %}
+                        <form method="POST" action="{{ url_for('register_for_event', event_id=event.id) }}">
+                            {{ form.hidden_tag() }}
+
+                            <div class="mb-3">
+                                {{ form.name.label(class="form-label") }}
+                                {{ form.name(class="form-control" + (" is-invalid" if form.name.errors else "")) }}
+                                {% if form.name.errors %}
+                                    <div class="invalid-feedback">
+                                        {{ form.name.errors[0] }}
+                                    </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="mb-3">
+                                {{ form.email.label(class="form-label") }}
+                                {{ form.email(class="form-control" + (" is-invalid" if form.email.errors else ""), type="email") }}
+                                {% if form.email.errors %}
+                                    <div class="invalid-feedback">
+                                        {{ form.email.errors[0] }}
+                                    </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="mb-3">
+                                {{ form.phone.label(class="form-label") }}
+                                {{ form.phone(class="form-control" + (" is-invalid" if form.phone.errors else "")) }}
+                                {% if form.phone.errors %}
+                                    <div class="invalid-feedback">
+                                        {{ form.phone.errors[0] }}
+                                    </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="mb-3">
+                                {{ form.message.label(class="form-label") }}
+                                {{ form.message(class="form-control" + (" is-invalid" if form.message.errors else ""), rows="3") }}
+                                {% if form.message.errors %}
+                                    <div class="invalid-feedback">
+                                        {{ form.message.errors[0] }}
+                                    </div>
+                                {% endif %}
+                                <small class="text-muted">
+                                    Możesz dodać pytania lub uwagi dotyczące wydarzenia
+                                </small>
+                            </div>
+
+                            {{ form.submit(class="btn btn-primary w-100") }}
+                        </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <a href="{{ url_for('wydarzenia') }}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Powrót do wydarzeń
+        </a>
+    </div>
+</div>
+{% endblock %}

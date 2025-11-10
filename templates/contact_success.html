@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-lg">
+                <div class="card-body text-center p-5">
+                    <div class="mb-4">
+                        <i class="bi bi-check-circle text-success" style="font-size: 5rem;"></i>
+                    </div>
+
+                    <h1 class="mb-3">Dziękujemy za wiadomość!</h1>
+
+                    <p class="lead mb-4">
+                        Twoja wiadomość została wysłana. Odpowiemy najszybciej jak to możliwe.
+                    </p>
+
+                    <div class="card bg-light mb-4">
+                        <div class="card-body text-start">
+                            <h5 class="card-title">Podsumowanie wiadomości</h5>
+
+                            <p class="mb-2">
+                                <strong>Od:</strong> {{ message.name }}
+                            </p>
+
+                            <p class="mb-2">
+                                <strong>Email:</strong> {{ message.email }}
+                            </p>
+
+                            {% if message.phone %}
+                            <p class="mb-2">
+                                <strong>Telefon:</strong> {{ message.phone }}
+                            </p>
+                            {% endif %}
+
+                            <p class="mb-2">
+                                <strong>Tematy:</strong>
+                                {% if message.topics %}
+                                    {% set topics_dict = {
+                                        'olejki': 'Olejki eteryczne',
+                                        'woda': 'Woda wodorowa',
+                                        'joga': 'Joga',
+                                        'zielone': 'Zielona żywność',
+                                        'kregi': 'Kręgi męskie',
+                                        'inne': 'Inne'
+                                    } %}
+                                    {% for topic in message.topics.split(', ') %}
+                                        <span class="badge bg-primary me-1">{{ topics_dict.get(topic, topic) }}</span>
+                                    {% endfor %}
+                                {% else %}
+                                    <span class="text-muted">Nie wybrano tematów</span>
+                                {% endif %}
+                            </p>
+
+                            <p class="mb-0">
+                                <strong>Wiadomość:</strong><br>
+                                <span class="text-muted">{{ message.message }}</span>
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        Potwierdzenie zostało wysłane na adres: <strong>{{ message.email }}</strong>
+                    </div>
+
+                    <div class="mt-4">
+                        <a href="{{ url_for('index') }}" class="btn btn-primary me-2">
+                            Strona główna
+                        </a>
+                        <a href="{{ url_for('wydarzenia') }}" class="btn btn-secondary">
+                            Zobacz wydarzenia
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

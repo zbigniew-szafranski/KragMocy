@@ -1,0 +1,82 @@
+<!-- templates/admin_payments.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h1> Zarządzanie płatnościami</h1>
+
+    <h2>⏳ Oczekujące płatności ({{ pending|length }})</h2>
+
+    {% if pending %}
+    <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+        <thead>
+            <tr style="background: #f5f5f5;">
+                <th style="padding: 10px; text-align: left;">ID</th>
+                <th style="padding: 10px; text-align: left;">Uczestnik</th>
+                <th style="padding: 10px; text-align: left;">Wydarzenie</th>
+                <th style="padding: 10px; text-align: left;">Kwota</th>
+                <th style="padding: 10px; text-align: left;">Data zapisu</th>
+                <th style="padding: 10px; text-align: left;">Akcje</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for reg in pending %}
+            <tr style="border-bottom: 1px solid #ddd;">
+                <td style="padding: 10px;">REG-{{ reg.id }}</td>
+                <td style="padding: 10px;">
+                    {{ reg.name }}<br>
+                    <small>{{ reg.email }}</small>
+                </td>
+                <td style="padding: 10px;">{{ reg.event.title }}</td>
+                <td style="padding: 10px;"><strong>{{ reg.payment_amount }} PLN</strong></td>
+                <td style="padding: 10px;">{{ reg.registered_at.strftime('%d.%m.%Y %H:%M') }}</td>
+                <td style="padding: 10px;">
+                    <form method="POST" action="{{ url_for('confirm_payment', registration_id=reg.id) }}" style="display: inline;">
+                        <button type="submit"
+                                style="background: #4CAF50; color: white; border: none;
+                                       padding: 8px 15px; border-radius: 5px; cursor: pointer;"
+                                onclick="return confirm('Potwierdzić płatność?')">
+                            ✅ Potwierdź
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>Brak oczekujących płatności </p>
+    {% endif %}
+
+    <hr style="margin: 40px 0;">
+
+    <h2>✅ Opłacone (ostatnie 50)</h2>
+
+    {% if paid %}
+    <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+            <tr style="background: #f5f5f5;">
+                <th style="padding: 10px; text-align: left;">ID</th>
+                <th style="padding: 10px; text-align: left;">Uczestnik</th>
+                <th style="padding: 10px; text-align: left;">Wydarzenie</th>
+                <th style="padding: 10px; text-align: left;">Kwota</th>
+                <th style="padding: 10px; text-align: left;">Data płatności</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for reg in paid %}
+            <tr style="border-bottom: 1px solid #ddd;">
+                <td style="padding: 10px;">REG-{{ reg.id }}</td>
+                <td style="padding: 10px;">{{ reg.name }}</td>
+                <td style="padding: 10px;">{{ reg.event.title }}</td>
+                <td style="padding: 10px;">{{ reg.payment_amount }} PLN</td>
+                <td style="padding: 10px;">{{ reg.payment_date.strftime('%d.%m.%Y %H:%M') if reg.payment_date else '-' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>Brak opłaconych zapisów</p>
+    {% endif %}
+</div>
+{% endblock %}
