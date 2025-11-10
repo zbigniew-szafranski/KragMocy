@@ -17,18 +17,20 @@ import os
 app = Flask(__name__)
 
 # Załaduj konfigurację
-if os.environ.get('RAILWAY_ENVIRONMENT') or os.environ.get('DATABASE_URL'):
-    # Produkcja na Railway
-    database_url = os.environ.get('DATABASE_URL')
+database_url = os.environ.get('DATABASE_URL')
+
+if database_url:
+    # PRODUKCJA - Railway (ma DATABASE_URL)
+    print("🚀 Tryb produkcji - Railway")
 
     # Railway czasem używa postgres://, a SQLAlchemy wymaga postgresql://
-    if database_url and database_url.startswith('postgres://'):
+    if database_url.startswith('postgres://'):
         database_url = database_url.replace('postgres://', 'postgresql://', 1)
 
     app.config['SQLALCHEMY_DATABASE_URI'] = database_url
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
-    app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER')
+    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'fallback-secret-key-change-this')
+    app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
     app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
     app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'True') == 'True'
     app.config['MAIL_USE_SSL'] = os.environ.get('MAIL_USE_SSL', 'False') == 'True'
@@ -37,13 +39,18 @@ if os.environ.get('RAILWAY_ENVIRONMENT') or os.environ.get('DATABASE_URL'):
     app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER')
     app.config['MAIL_ADMIN'] = os.environ.get('MAIL_ADMIN')
 
-    # PostgreSQL
+    # PostgreSQL - opcje połączenia
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
         'pool_pre_ping': True,
         'pool_recycle': 300,
     }
+
+    print(f"✅ PostgreSQL skonfigurowany")
+    print(f"   Database: {database_url.split('@')[1] if '@' in database_url else 'hidden'}")
 else:
-    # Lokalnie - użyj config.py
+    # LOKALNIE - config.py
+    print("💻 Tryb lokalny - config.py")
+
     try:
         import config
 
@@ -54,6 +61,8 @@ else:
         app.config['SQLALCHEMY_DATABASE_URI'] = db_uri
         app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = config.SQLALCHEMY_TRACK_MODIFICATIONS
         app.config['SECRET_KEY'] = config.SECRET_KEY
+
+        # SQLite - specjalne opcje
         app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
             'connect_args': {
                 'check_same_thread': False,
@@ -64,6 +73,7 @@ else:
             'pool_size': 1,
             'max_overflow': 0
         }
+
         app.config['MAIL_SERVER'] = config.MAIL_SERVER
         app.config['MAIL_PORT'] = config.MAIL_PORT
         app.config['MAIL_USE_TLS'] = config.MAIL_USE_TLS
@@ -72,9 +82,14 @@ else:
         app.config['MAIL_PASSWORD'] = config.MAIL_PASSWORD
         app.config['MAIL_DEFAULT_SENDER'] = config.MAIL_DEFAULT_SENDER
         app.config['MAIL_ADMIN'] = config.MAIL_ADMIN
-    except ImportError:
-        print("⚠️  UWAGA: Brak pliku config.py i brak zmiennych środowiskowych!")
-        raise
+
+        print(f"✅ SQLite skonfigurowany: {db_uri}")
+
+    except ImportError as e:
+        print("⚠️  BŁĄD: Brak pliku config.py i brak DATABASE_URL!")
+        print("   Lokalnie: Stwórz plik config.py")
+        print("   Railway: Dodaj PostgreSQL database")
+        raise RuntimeError("Brak konfiguracji bazy danych!") from e
 
 db = SQLAlchemy(app)
 mail = Mail(app)
