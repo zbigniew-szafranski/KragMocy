@@ -104,6 +104,8 @@ def shutdown_session(exception=None):
 
 # Model bazy danych dla wydarzeń
 class Event(db.Model):
+    __tablename__ = 'events'
+
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
     date = db.Column(db.DateTime, nullable=False)
