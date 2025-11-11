@@ -13,6 +13,7 @@ from wtforms.widgets import CheckboxInput, ListWidget
 import ephem
 from datetime import datetime
 import os
+import psycopg2
 
 app = Flask(__name__)
 
