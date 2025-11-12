@@ -104,7 +104,7 @@ def shutdown_session(exception=None):
 
 # Model bazy danych dla wydarzeń
 class Event(db.Model):
-    __tablename__ = 'events'
+    # __tablename__ = 'events'
 
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
@@ -115,7 +115,7 @@ class Event(db.Model):
     spots_total = db.Column(db.Integer, default=10)
     spots_taken = db.Column(db.Integer, default=0)
     image = db.Column(db.String(200), nullable=True)
-    registrations = db.relationship('Registration', backref='event', lazy=True, cascade='all, delete-orphan')
+    registrations = db.relationship('Registration', backref='events', lazy=True, cascade='all, delete-orphan')
 
     def __repr__(self):
         return f'<Event {self.title}>'
@@ -135,7 +135,7 @@ class Event(db.Model):
 
 # Model dla zapisów uczestników
 class Registration(db.Model):
-    __tablename__ = 'registration'
+    # __tablename__ = 'registration'
     id = db.Column(db.Integer, primary_key=True)
     event_id = db.Column(db.Integer, db.ForeignKey('events.id'), nullable=False)
     name = db.Column(db.String(100), nullable=False)
@@ -211,16 +211,6 @@ class ContactForm(FlaskForm):
         Length(min=10, max=1000, message='Wiadomość musi mieć od 10 do 1000 znaków')
     ])
     submit = SubmitField('Wyślij wiadomość')
-
-# @app.route('/init-db-secret-endpoint-12345')
-# def init_database():
-#     """Inicjalizacja bazy danych - wywołaj raz po deploymencie"""
-#     try:
-#         with app.app_context():
-#             db.create_all()
-#         return "✅ Baza danych zainicjalizowana!", 200
-#     except Exception as e:
-#         return f"❌ Błąd: {str(e)}", 500
 
 
 def get_moon_phase(date):
