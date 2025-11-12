@@ -511,12 +511,15 @@ def event_detail(event_id):
     event = Event.query.get_or_404(event_id)
     event.moon_phase = get_moon_phase(event.date)
     form = RegistrationForm()
+    print("✅ Rejestracja zapisana, renderuję stronę...")
 
     return render_template('event_detail.html',
                            title=event.title,
                            event=event,
                            form=form)
 
+print("📡 Test połączenia:", db.session.execute('SELECT 1').scalar())
+print("📊 Tabele:", db.engine.table_names())
 
 @app.route('/wydarzenie/<int:event_id>/zapis', methods=['POST'])
 def register_for_event(event_id):
