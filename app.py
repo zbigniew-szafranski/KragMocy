@@ -115,7 +115,7 @@ class Event(db.Model):
     spots_total = db.Column(db.Integer, default=10)
     spots_taken = db.Column(db.Integer, default=0)
     image = db.Column(db.String(200), nullable=True)
-    registrations = db.relationship('Registration', backref='events', lazy=True, cascade='all, delete-orphan')
+    registrations = db.relationship('Registration', backref='event', lazy=True, cascade='all, delete-orphan')
 
     def __repr__(self):
         return f'<Event {self.title}>'
