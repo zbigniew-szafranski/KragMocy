@@ -518,9 +518,6 @@ def event_detail(event_id):
                            event=event,
                            form=form)
 
-print("📡 Test połączenia:", db.session.execute('SELECT 1').scalar())
-print("📊 Tabele:", db.engine.table_names())
-
 @app.route('/wydarzenie/<int:event_id>/zapis', methods=['POST'])
 def register_for_event(event_id):
     """Obsługa zapisu na wydarzenie"""
