@@ -104,7 +104,7 @@ def shutdown_session(exception=None):
 
 # Model bazy danych dla wydarzeń
 class Event(db.Model):
-    # __tablename__ = 'events'
+    __tablename__ = 'event'
 
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
@@ -135,7 +135,7 @@ class Event(db.Model):
 
 # Model dla zapisów uczestników
 class Registration(db.Model):
-    # __tablename__ = 'registration'
+    __tablename__ = 'registration'
     id = db.Column(db.Integer, primary_key=True)
     event_id = db.Column(db.Integer, db.ForeignKey('events.id'), nullable=False)
     name = db.Column(db.String(100), nullable=False)
