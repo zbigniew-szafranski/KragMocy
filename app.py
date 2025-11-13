@@ -17,6 +17,8 @@ import psycopg2
 import threading
 
 app = Flask(__name__)
+db = SQLAlchemy(app)
+mail = Mail(app)
 
 # Załaduj konfigurację
 database_url = os.environ.get('DATABASE_URL')
@@ -93,8 +95,8 @@ else:
         print("   Railway: Dodaj PostgreSQL database")
         raise RuntimeError("Brak konfiguracji bazy danych!") from e
 
-db = SQLAlchemy(app)
-mail = Mail(app)
+# db = SQLAlchemy(app)
+# mail = Mail(app)
 
 
 # Automatyczne zamykanie sesji
@@ -285,16 +287,22 @@ def truncate_text(text, length=100):
         return text
     return text[:length].rsplit(' ', 1)[0] + '...'
 
+import threading
+from app import app  # upewnij się, że to poprawna ścieżka
+
 def send_contact_email_async(contact_message):
     thread = threading.Thread(target=send_contact_email_threadsafe, args=(contact_message,))
     thread.start()
 
-
 def send_contact_email_threadsafe(contact_message):
-    """Wysyła maila wewnątrz kontekstu aplikacji Flask"""
-    from app import app  # ważne: import tutaj, żeby Flask znał kontekst
     with app.app_context():
-        send_contact_email(contact_message)
+        print("📧 Wysyłam maila (async)...")
+        try:
+            send_contact_email(contact_message)
+            print("✅ Mail wysłany!")
+        except Exception as e:
+            print("❌ Błąd przy wysyłaniu maila:", e)
+
 
 
 def send_contact_email(contact_message):
