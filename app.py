@@ -17,8 +17,6 @@ import psycopg2
 import threading
 
 app = Flask(__name__)
-db = SQLAlchemy(app)
-mail = Mail(app)
 
 # Załaduj konfigurację
 database_url = os.environ.get('DATABASE_URL')
@@ -95,8 +93,8 @@ else:
         print("   Railway: Dodaj PostgreSQL database")
         raise RuntimeError("Brak konfiguracji bazy danych!") from e
 
-# db = SQLAlchemy(app)
-# mail = Mail(app)
+db = SQLAlchemy(app)
+mail = Mail(app)
 
 
 # Automatyczne zamykanie sesji
