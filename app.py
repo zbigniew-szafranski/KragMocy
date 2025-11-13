@@ -286,7 +286,16 @@ def truncate_text(text, length=100):
     return text[:length].rsplit(' ', 1)[0] + '...'
 
 def send_contact_email_async(contact_message):
-    threading.Thread(target=send_contact_email, args=(contact_message,)).start()
+    thread = threading.Thread(target=send_contact_email_threadsafe, args=(contact_message,))
+    thread.start()
+
+
+def send_contact_email_threadsafe(contact_message):
+    """Wysyła maila wewnątrz kontekstu aplikacji Flask"""
+    from app import app  # ważne: import tutaj, żeby Flask znał kontekst
+    with app.app_context():
+        send_contact_email(contact_message)
+
 
 def send_contact_email(contact_message):
     """Wysyła email z potwierdzeniem do klienta i powiadomienie do admina"""
