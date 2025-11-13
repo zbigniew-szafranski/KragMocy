@@ -14,7 +14,6 @@ import ephem
 from datetime import datetime
 import os
 import psycopg2
-import threading
 
 app = Flask(__name__)
 
@@ -289,14 +288,21 @@ import threading
 from app import app  # upewnij się, że to poprawna ścieżka
 
 def send_contact_email_async(contact_message):
-    thread = threading.Thread(target=send_contact_email_threadsafe, args=(contact_message,))
-    thread.start()
+    # Odłączamy obiekt od sesji – zamieniamy na czysty słownik
+    message_data = {
+        "name": contact_message.name,
+        "email": contact_message.email,
+        "phone": contact_message.phone,
+        "topics": contact_message.topics,
+        "message": contact_message.message,
+    }
+    threading.Thread(target=send_contact_email_threadsafe, args=(message_data,)).start()
 
-def send_contact_email_threadsafe(contact_message):
+def send_contact_email_threadsafe(message_data):
     with app.app_context():
-        print("📧 Wysyłam maila (async)...")
+        print("📧 Wysyłam maila (async, detached)...")
         try:
-            send_contact_email(contact_message)
+            send_contact_email(message_data)
             print("✅ Mail wysłany!")
         except Exception as e:
             print("❌ Błąd przy wysyłaniu maila:", e)
@@ -344,7 +350,7 @@ Zespół Krąg Mocy
     # Email do admina
     try:
         msg_admin = Message(
-            subject=f'Nowa wiadomość kontaktowa od {contact_message.name}',
+            subject=f"Nowa wiadomość kontaktowa od {contact_message['name']}...",
             recipients=[app.config['MAIL_ADMIN']],
             body=f"""Otrzymałeś nową wiadomość kontaktową:
 
