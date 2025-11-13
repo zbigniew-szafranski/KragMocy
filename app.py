@@ -14,6 +14,7 @@ import ephem
 from datetime import datetime
 import os
 import psycopg2
+import threading
 
 app = Flask(__name__)
 
@@ -284,6 +285,8 @@ def truncate_text(text, length=100):
         return text
     return text[:length].rsplit(' ', 1)[0] + '...'
 
+def send_contact_email_async(contact_message):
+    threading.Thread(target=send_contact_email, args=(contact_message,)).start()
 
 def send_contact_email(contact_message):
     """Wysyła email z potwierdzeniem do klienta i powiadomienie do admina"""
@@ -641,7 +644,7 @@ def kontakt():
                 print(f"✅ Wiadomość zapisana (próba {attempt + 1})")
 
                 try:
-                    send_contact_email(contact_message)
+                    send_contact_email_async(contact_message)
                 except Exception as e:
                     print(f"⚠️ Błąd wysyłania emaila: {e}")
 
