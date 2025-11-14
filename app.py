@@ -287,16 +287,10 @@ def truncate_text(text, length=100):
 import threading
 from app import app  # upewnij się, że to poprawna ścieżka
 
-def send_contact_email_async(contact_message):
-    # Odłączamy obiekt od sesji – zamieniamy na czysty słownik
-    message_data = {
-        "name": contact_message.name,
-        "email": contact_message.email,
-        "phone": contact_message.phone,
-        "topics": contact_message.topics,
-        "message": contact_message.message,
-    }
-    threading.Thread(target=send_contact_email_threadsafe, args=(message_data,)).start()
+import threading
+
+def send_contact_email_async(contact_message_dict):
+    threading.Thread(target=send_contact_email, args=(contact_message_dict,)).start()
 
 def send_contact_email_threadsafe(message_data):
     with app.app_context():
@@ -310,7 +304,8 @@ def send_contact_email_threadsafe(message_data):
 
 
 def send_contact_email(contact_message):
-    """Wysyła email z potwierdzeniem do klienta i powiadomienie do admina"""
+    """contact_message to dict, nie ORM"""
+
     topics_dict = {
         'olejki': 'Olejki eteryczne',
         'woda': 'Woda wodorowa',
@@ -320,15 +315,17 @@ def send_contact_email(contact_message):
         'inne': 'Inne'
     }
 
-    topics_list = contact_message.topics.split(', ') if contact_message.topics else []
+    topics_list = contact_message['topics'].split(', ') if contact_message['topics'] else []
     topics_formatted = ', '.join([topics_dict.get(t, t) for t in topics_list])
 
-    # Email do klienta
-    try:
-        msg_client = Message(
-            subject='Potwierdzenie otrzymania wiadomości - Kręgi Męskie',
-            recipients=[contact_message.email],
-            body=f"""Witaj {contact_message.name},
+    with app.app_context():
+
+        # ---------- Email do klienta ----------
+        try:
+            msg_client = Message(
+                subject='Potwierdzenie otrzymania wiadomości - Kręgi Męskie',
+                recipients=[contact_message['email']],
+                body=f"""Witaj {contact_message['name']},
 
 Dziękujemy za kontakt!
 
@@ -336,40 +333,42 @@ Otrzymaliśmy Twoją wiadomość i odpowiemy najszybciej jak to możliwe.
 
 Podsumowanie:
 Tematy: {topics_formatted or 'Nie wybrano'}
-Wiadomość: {contact_message.message}
+Wiadomość:
+{contact_message['message']}
 
 Pozdrawiamy,
 Zespół Krąg Mocy
 """
-        )
-        mail.send(msg_client)
-        print(f"✅ Email potwierdzający wysłany do: {contact_message.email}")
-    except Exception as e:
-        print(f"❌ Błąd wysyłania emaila do klienta: {e}")
+            )
+            mail.send(msg_client)
+            print(f"📨 Email potwierdzający wysłany do: {contact_message['email']}")
+        except Exception as e:
+            print(f"❌ Błąd wysyłania emaila do klienta: {e}")
 
-    # Email do admina
-    try:
-        msg_admin = Message(
-            subject=f"Nowa wiadomość kontaktowa od {contact_message['name']}...",
-            recipients=[app.config['MAIL_ADMIN']],
-            body=f"""Otrzymałeś nową wiadomość kontaktową:
 
-Od: {contact_message.name}
-Email: {contact_message.email}
-Telefon: {contact_message.phone or 'Nie podano'}
+        # ---------- Email do admina ----------
+        try:
+            msg_admin = Message(
+                subject=f"Nowa wiadomość od {contact_message['name']}",
+                recipients=[app.config['MAIL_ADMIN']],
+                body=f"""Nowa wiadomość kontaktowa:
+
+Od: {contact_message['name']}
+Email: {contact_message['email']}
+Telefon: {contact_message['phone'] or 'Nie podano'}
 Tematy: {topics_formatted or 'Nie wybrano'}
 
 Wiadomość:
-{contact_message.message}
+{contact_message['message']}
 
----
-Data wysłania: {contact_message.sent_at.strftime('%d.%m.%Y %H:%M')}
+Wysłano: {contact_message['sent_at'].strftime('%d.%m.%Y %H:%M')}
 """
-        )
-        mail.send(msg_admin)
-        print(f"✅ Powiadomienie wysłane do admina")
-    except Exception as e:
-        print(f"❌ Błąd wysyłania emaila do admina: {e}")
+            )
+            mail.send(msg_admin)
+            print(f"📨 Powiadomienie wysłane do admina")
+        except Exception as e:
+            print(f"❌ Błąd wysyłania emaila do admina: {e}")
+
 
 
 def send_registration_email(registration):
@@ -645,45 +644,42 @@ def kontakt():
     form = ContactForm()
 
     if form.validate_on_submit():
-        max_retries = 5
-        retry_delay = 0.5
+        try:
+            topics_str = ', '.join(form.topics.data) if form.topics.data else ''
 
-        for attempt in range(max_retries):
-            try:
-                topics_str = ', '.join(form.topics.data) if form.topics.data else ''
+            contact_message = ContactMessage(
+                name=form.name.data,
+                email=form.email.data,
+                phone=form.phone.data,
+                topics=topics_str,
+                message=form.message.data
+            )
 
-                contact_message = ContactMessage(
-                    name=form.name.data,
-                    email=form.email.data,
-                    phone=form.phone.data,
-                    topics=topics_str,
-                    message=form.message.data
-                )
+            db.session.add(contact_message)
+            db.session.commit()
 
-                db.session.add(contact_message)
-                db.session.commit()
-                print(f"✅ Wiadomość zapisana (próba {attempt + 1})")
+            print("✅ Wiadomość zapisana")
 
-                try:
-                    send_contact_email_async(contact_message)
-                except Exception as e:
-                    print(f"⚠️ Błąd wysyłania emaila: {e}")
+            # → zamieniamy ORM na dict, aby nie zdychało poza sesją
+            message_dict = {
+                "id": contact_message.id,
+                "name": contact_message.name,
+                "email": contact_message.email,
+                "phone": contact_message.phone,
+                "topics": contact_message.topics,
+                "message": contact_message.message,
+                "sent_at": contact_message.sent_at
+            }
 
-                flash('Dziękujemy za wiadomość! Odpowiemy wkrótce.', 'success')
-                return redirect(url_for('contact_success', message_id=contact_message.id))
+            send_contact_email_async(message_dict)
 
-            except Exception as e:
-                db.session.rollback()
-                print(f"⚠️ Próba {attempt + 1}/{max_retries}: {e}")
+            flash('Dziękujemy za wiadomość! Odpowiemy wkrótce.', 'success')
+            return redirect(url_for('contact_success', message_id=contact_message.id))
 
-                if attempt < max_retries - 1:
-                    import time
-                    time.sleep(retry_delay)
-                    retry_delay *= 2
-                    continue
-                else:
-                    flash('Wystąpił błąd podczas zapisywania wiadomości. Spróbuj ponownie.', 'error')
-                    return render_template('kontakt.html', title='Kontakt', form=form)
+        except Exception as e:
+            db.session.rollback()
+            print(f"❌ Błąd zapisu: {e}")
+            flash("Wystąpił błąd. Spróbuj ponownie.", "error")
 
     return render_template('kontakt.html', title='Kontakt', form=form)
 
