@@ -289,8 +289,12 @@ from app import app  # upewnij się, że to poprawna ścieżka
 
 import threading
 
-def send_contact_email_async(contact_message_dict):
-    threading.Thread(target=send_contact_email, args=(contact_message_dict,)).start()
+def send_contact_email_async(contact_message):
+    threading.Thread(
+        target=send_contact_email,
+        args=(contact_message,)
+    ).start()
+
 
 def send_contact_email_threadsafe(message_data):
     with app.app_context():
@@ -304,70 +308,61 @@ def send_contact_email_threadsafe(message_data):
 
 
 def send_contact_email(contact_message):
-    """contact_message to dict, nie ORM"""
+    with app.app_context():  # ważne w async!
+        topics_dict = {
+            'olejki': 'Olejki eteryczne',
+            'woda': 'Woda wodorowa',
+            'joga': 'Joga',
+            'zielone': 'Zielona żywność',
+            'kregi': 'Kręgi męskie',
+            'inne': 'Inne'
+        }
 
-    topics_dict = {
-        'olejki': 'Olejki eteryczne',
-        'woda': 'Woda wodorowa',
-        'joga': 'Joga',
-        'zielone': 'Zielona żywność',
-        'kregi': 'Kręgi męskie',
-        'inne': 'Inne'
-    }
+        topics_list = contact_message.topics.split(', ') if contact_message.topics else []
+        topics_formatted = ', '.join([topics_dict.get(t, t) for t in topics_list])
 
-    topics_list = contact_message['topics'].split(', ') if contact_message['topics'] else []
-    topics_formatted = ', '.join([topics_dict.get(t, t) for t in topics_list])
-
-    with app.app_context():
-
-        # ---------- Email do klienta ----------
+        # Email do klienta
         try:
             msg_client = Message(
                 subject='Potwierdzenie otrzymania wiadomości - Kręgi Męskie',
-                recipients=[contact_message['email']],
-                body=f"""Witaj {contact_message['name']},
+                recipients=[contact_message.email],
+                body=f"""Witaj {contact_message.name},
 
 Dziękujemy za kontakt!
 
-Otrzymaliśmy Twoją wiadomość i odpowiemy najszybciej jak to możliwe.
-
 Podsumowanie:
 Tematy: {topics_formatted or 'Nie wybrano'}
-Wiadomość:
-{contact_message['message']}
+Wiadomość: {contact_message.message}
 
 Pozdrawiamy,
 Zespół Krąg Mocy
 """
             )
             mail.send(msg_client)
-            print(f"📨 Email potwierdzający wysłany do: {contact_message['email']}")
+            print(f"📧 Email potwierdzający wysłany do klienta: {contact_message.email}")
         except Exception as e:
-            print(f"❌ Błąd wysyłania emaila do klienta: {e}")
+            print(f"❌ Błąd wysyłania maila do klienta: {e}")
 
-
-        # ---------- Email do admina ----------
+        # Email do admina
         try:
             msg_admin = Message(
-                subject=f"Nowa wiadomość od {contact_message['name']}",
+                subject=f"Nowa wiadomość kontaktowa od {contact_message.name}",
                 recipients=[app.config['MAIL_ADMIN']],
                 body=f"""Nowa wiadomość kontaktowa:
 
-Od: {contact_message['name']}
-Email: {contact_message['email']}
-Telefon: {contact_message['phone'] or 'Nie podano'}
+Imię: {contact_message.name}
+Email: {contact_message.email}
+Telefon: {contact_message.phone or 'Nie podano'}
 Tematy: {topics_formatted or 'Nie wybrano'}
+Wiadomość: {contact_message.message}
 
-Wiadomość:
-{contact_message['message']}
-
-Wysłano: {contact_message['sent_at'].strftime('%d.%m.%Y %H:%M')}
+Data: {contact_message.sent_at.strftime('%d.%m.%Y %H:%M')}
 """
             )
             mail.send(msg_admin)
-            print(f"📨 Powiadomienie wysłane do admina")
+            print("📧 Email do admina wysłany")
         except Exception as e:
-            print(f"❌ Błąd wysyłania emaila do admina: {e}")
+            print(f"❌ Błąd wysyłania maila do admina: {e}")
 
 
 
