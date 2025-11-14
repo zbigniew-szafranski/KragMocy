@@ -31,10 +31,10 @@ if database_url:
     app.config['SQLALCHEMY_DATABASE_URI'] = database_url
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'fallback-secret-key-change-this')
-    app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
-    app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
-    app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'True') == 'True'
-    app.config['MAIL_USE_SSL'] = os.environ.get('MAIL_USE_SSL', 'False') == 'True'
+    app.config['MAIL_SERVER'] = 'smtp-relay.brevo.com'
+    app.config['MAIL_PORT'] = 587
+    app.config['MAIL_USE_TLS'] = True
+    app.config['MAIL_USE_SSL'] = False
     app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
     app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
     app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER')
@@ -293,9 +293,6 @@ import threading
 def send_contact_email_async(contact_message_id):
     threading.Thread(target=send_contact_email, args=(contact_message_id,)).start()
 
-
-
-
 def send_contact_email_threadsafe(message_data):
     with app.app_context():
         print("📧 Wysyłam maila (async, detached)...")
@@ -309,46 +306,57 @@ from flask_mail import Message
 
 def send_contact_email(contact_message_id):
     with app.app_context():
-        # Pobierz dane z bazy
         cm = ContactMessage.query.get(contact_message_id)
 
         if not cm:
-            print("❌ ContactMessage not found")
+            print("❌ ContactMessage ID not found")
             return
 
         try:
-            topics_list = cm.topics.split(", ") if cm.topics else []
-            topics_html = "<br>".join(topics_list)
-
-            # Mail do Ciebie
-            admin_msg = Message(
-                subject=f"Nowa wiadomość od {cm.name}",
-                recipients=[app.config['MAIL_ADMIN']],
-                html=f"""
-                    <h3>Nowy kontakt</h3>
-                    <b>Imię:</b> {cm.name}<br>
-                    <b>Email:</b> {cm.email}<br>
-                    <b>Telefon:</b> {cm.phone}<br>
-                    <b>Tematy:</b><br>{topics_html}<br><br>
-                    <b>Wiadomość:</b><br>{cm.message}
-                """
-            )
-            mail.send(admin_msg)
-
-            # Mail potwierdzający do klienta
             client_msg = Message(
-                subject="Dziękuję za Twoją wiadomość",
+                subject="Dziękujemy za wiadomość",
                 recipients=[cm.email],
-                html="""
-                    <p>Dziękuję za kontakt. Odpowiem tak szybko, jak to możliwe.</p>
+                body=f"""
+Witaj {cm.name},
+
+Dziękujemy za kontakt. Odpowiemy tak szybko jak to możliwe.
+
+Twoje tematy: {cm.topics}
+Treść wiadomości:
+{cm.message}
+
+Pozdrawiam,
+Zespół
                 """
             )
             mail.send(client_msg)
-
-            print("📬 Maile wysłane poprawnie")
+            print("📬 Email do klienta wysłany")
 
         except Exception as e:
-            print(f"❌ Błąd wysyłania emaila: {e}")
+            print("❌ Błąd wysyłania emaila do klienta:", e)
+
+        try:
+            admin_msg = Message(
+                subject=f"Nowa wiadomość od {cm.name}",
+                recipients=[app.config['MAIL_ADMIN']],
+                body=f"""
+Od: {cm.name}
+Email: {cm.email}
+Telefon: {cm.phone}
+Tematy: {cm.topics}
+
+Wiadomość:
+{cm.message}
+
+Wysłano: {cm.sent_at}
+                """
+            )
+            mail.send(admin_msg)
+            print("📬 Email do admina wysłany")
+
+        except Exception as e:
+            print("❌ Błąd wysyłania emaila do admina:", e)
+
 
 
 
@@ -620,38 +628,48 @@ def zielone():
     return render_template('zielone.html', title='Zielona Żywność')
 
 
-@app.route('/kontact', methods=['POST'])
-def contact():
-    data = request.get_json()
+@app.route('/kontakt', methods=['GET', 'POST'])
+def kontakt():
+    if request.method == 'POST':
+        data = request.form
 
-    name = data.get('name')
-    email = data.get('email')
-    phone = data.get('phone')
-    topics = ", ".join(data.get('topics', [])) if isinstance(data.get('topics'), list) else data.get('topics')
-    message = data.get('message')
+        name = data.get('name')
+        email = data.get('email')
+        phone = data.get('phone')
+        topics = data.getlist('topics') if 'topics' in data else []
+        message = data.get('message')
 
-    if not name or not email or not message:
-        return jsonify({"error": "Brak wymaganych pól"}), 400
+        topics_str = ", ".join(topics)
 
-    try:
-        contact_message = ContactMessage(
-            name=name,
-            email=email,
-            phone=phone,
-            topics=topics,
-            message=message
-        )
-        db.session.add(contact_message)
-        db.session.commit()
+        if not name or not email or not message:
+            flash("Wypełnij wymagane pola.", "error")
+            return redirect(url_for('kontakt'))
 
-        # Wyślij maila asynchronicznie (TYLKO ID)
-        send_contact_email_async(contact_message.id)
+        try:
+            contact_message = ContactMessage(
+                name=name,
+                email=email,
+                phone=phone,
+                topics=topics_str,
+                message=message
+            )
 
-        return jsonify({"success": True, "message": "Wiadomość zapisana. Email zostanie wysłany."})
+            db.session.add(contact_message)
+            db.session.commit()
 
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": str(e)}), 500
+            # wysyłka maila w tle – po ID
+            send_contact_email_async(contact_message.id)
+
+            flash("Wiadomość wysłana!", "success")
+            return redirect(url_for('kontakt'))
+
+        except Exception as e:
+            db.session.rollback()
+            print("❌ DB Error:", e)
+            flash("Błąd podczas wysyłania wiadomości.", "error")
+
+    return render_template('kontakt.html')
+
 
 
 
