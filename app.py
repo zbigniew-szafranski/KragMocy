@@ -169,12 +169,13 @@ class RegistrationForm(FlaskForm):
 
 class ContactMessage(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
+    name = db.Column(db.String(120), nullable=False)
     email = db.Column(db.String(120), nullable=False)
-    phone = db.Column(db.String(20), nullable=True)
-    topics = db.Column(db.String(200), nullable=False)
+    phone = db.Column(db.String(50), nullable=True)
+    topics = db.Column(db.String(255), nullable=True)
     message = db.Column(db.Text, nullable=False)
-    sent_at = db.Column(db.DateTime, default=datetime.now)
+    sent_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 
     def __repr__(self):
         return f'<ContactMessage {self.name} - {self.topics}>'
@@ -289,11 +290,10 @@ from app import app  # upewnij się, że to poprawna ścieżka
 
 import threading
 
-def send_contact_email_async(contact_message):
-    threading.Thread(
-        target=send_contact_email,
-        args=(contact_message,)
-    ).start()
+def send_contact_email_async(contact_message_id):
+    threading.Thread(target=send_contact_email, args=(contact_message_id,)).start()
+
+
 
 
 def send_contact_email_threadsafe(message_data):
@@ -305,64 +305,50 @@ def send_contact_email_threadsafe(message_data):
         except Exception as e:
             print("❌ Błąd przy wysyłaniu maila:", e)
 
+from flask_mail import Message
 
+def send_contact_email(contact_message_id):
+    with app.app_context():
+        # Pobierz dane z bazy
+        cm = ContactMessage.query.get(contact_message_id)
 
-def send_contact_email(contact_message):
-    with app.app_context():  # ważne w async!
-        topics_dict = {
-            'olejki': 'Olejki eteryczne',
-            'woda': 'Woda wodorowa',
-            'joga': 'Joga',
-            'zielone': 'Zielona żywność',
-            'kregi': 'Kręgi męskie',
-            'inne': 'Inne'
-        }
+        if not cm:
+            print("❌ ContactMessage not found")
+            return
 
-        topics_list = contact_message.topics.split(', ') if contact_message.topics else []
-        topics_formatted = ', '.join([topics_dict.get(t, t) for t in topics_list])
-
-        # Email do klienta
         try:
-            msg_client = Message(
-                subject='Potwierdzenie otrzymania wiadomości - Kręgi Męskie',
-                recipients=[contact_message.email],
-                body=f"""Witaj {contact_message.name},
+            topics_list = cm.topics.split(", ") if cm.topics else []
+            topics_html = "<br>".join(topics_list)
 
-Dziękujemy za kontakt!
-
-Podsumowanie:
-Tematy: {topics_formatted or 'Nie wybrano'}
-Wiadomość: {contact_message.message}
-
-Pozdrawiamy,
-Zespół Krąg Mocy
-"""
-            )
-            mail.send(msg_client)
-            print(f"📧 Email potwierdzający wysłany do klienta: {contact_message.email}")
-        except Exception as e:
-            print(f"❌ Błąd wysyłania maila do klienta: {e}")
-
-        # Email do admina
-        try:
-            msg_admin = Message(
-                subject=f"Nowa wiadomość kontaktowa od {contact_message.name}",
+            # Mail do Ciebie
+            admin_msg = Message(
+                subject=f"Nowa wiadomość od {cm.name}",
                 recipients=[app.config['MAIL_ADMIN']],
-                body=f"""Nowa wiadomość kontaktowa:
-
-Imię: {contact_message.name}
-Email: {contact_message.email}
-Telefon: {contact_message.phone or 'Nie podano'}
-Tematy: {topics_formatted or 'Nie wybrano'}
-Wiadomość: {contact_message.message}
-
-Data: {contact_message.sent_at.strftime('%d.%m.%Y %H:%M')}
-"""
+                html=f"""
+                    <h3>Nowy kontakt</h3>
+                    <b>Imię:</b> {cm.name}<br>
+                    <b>Email:</b> {cm.email}<br>
+                    <b>Telefon:</b> {cm.phone}<br>
+                    <b>Tematy:</b><br>{topics_html}<br><br>
+                    <b>Wiadomość:</b><br>{cm.message}
+                """
             )
-            mail.send(msg_admin)
-            print("📧 Email do admina wysłany")
+            mail.send(admin_msg)
+
+            # Mail potwierdzający do klienta
+            client_msg = Message(
+                subject="Dziękuję za Twoją wiadomość",
+                recipients=[cm.email],
+                html="""
+                    <p>Dziękuję za kontakt. Odpowiem tak szybko, jak to możliwe.</p>
+                """
+            )
+            mail.send(client_msg)
+
+            print("📬 Maile wysłane poprawnie")
+
         except Exception as e:
-            print(f"❌ Błąd wysyłania maila do admina: {e}")
+            print(f"❌ Błąd wysyłania emaila: {e}")
 
 
 
@@ -634,49 +620,39 @@ def zielone():
     return render_template('zielone.html', title='Zielona Żywność')
 
 
-@app.route('/kontakt', methods=['GET', 'POST'])
-def kontakt():
-    form = ContactForm()
+@app.route('/kontact', methods=['POST'])
+def contact():
+    data = request.get_json()
 
-    if form.validate_on_submit():
-        try:
-            topics_str = ', '.join(form.topics.data) if form.topics.data else ''
+    name = data.get('name')
+    email = data.get('email')
+    phone = data.get('phone')
+    topics = ", ".join(data.get('topics', [])) if isinstance(data.get('topics'), list) else data.get('topics')
+    message = data.get('message')
 
-            contact_message = ContactMessage(
-                name=form.name.data,
-                email=form.email.data,
-                phone=form.phone.data,
-                topics=topics_str,
-                message=form.message.data
-            )
+    if not name or not email or not message:
+        return jsonify({"error": "Brak wymaganych pól"}), 400
 
-            db.session.add(contact_message)
-            db.session.commit()
+    try:
+        contact_message = ContactMessage(
+            name=name,
+            email=email,
+            phone=phone,
+            topics=topics,
+            message=message
+        )
+        db.session.add(contact_message)
+        db.session.commit()
 
-            print("✅ Wiadomość zapisana")
+        # Wyślij maila asynchronicznie (TYLKO ID)
+        send_contact_email_async(contact_message.id)
 
-            # → zamieniamy ORM na dict, aby nie zdychało poza sesją
-            message_dict = {
-                "id": contact_message.id,
-                "name": contact_message.name,
-                "email": contact_message.email,
-                "phone": contact_message.phone,
-                "topics": contact_message.topics,
-                "message": contact_message.message,
-                "sent_at": contact_message.sent_at
-            }
+        return jsonify({"success": True, "message": "Wiadomość zapisana. Email zostanie wysłany."})
 
-            send_contact_email_async(message_dict)
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 
-            flash('Dziękujemy za wiadomość! Odpowiemy wkrótce.', 'success')
-            return redirect(url_for('contact_success', message_id=contact_message.id))
-
-        except Exception as e:
-            db.session.rollback()
-            print(f"❌ Błąd zapisu: {e}")
-            flash("Wystąpił błąd. Spróbuj ponownie.", "error")
-
-    return render_template('kontakt.html', title='Kontakt', form=form)
 
 
 @app.route('/wiadomosc-wyslana/<int:message_id>')
