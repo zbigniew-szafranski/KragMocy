@@ -625,46 +625,33 @@ from datetime import datetime
 
 @app.route('/kontakt', methods=['GET', 'POST'])
 def kontakt():
-    if request.method == 'POST':
-        name = request.form.get('name')
-        email = request.form.get('email')
-        phone = request.form.get('phone')
-        topics = request.form.getlist('topics')  # jeśli checkboxy
-        message = request.form.get('message')
+    form = ContactForm()  # Tworzymy instancję WTForms
 
-        topics_str = ', '.join(topics) if topics else ''
+    if form.validate_on_submit():
+        # Tematy jako string
+        topics_str = ', '.join(form.topics.data) if form.topics.data else ''
 
+        # Zapis do bazy
+        contact_message = ContactMessage(
+            name=form.name.data,
+            email=form.email.data,
+            phone=form.phone.data,
+            topics=topics_str,
+            message=form.message.data
+        )
+        db.session.add(contact_message)
+        db.session.commit()
+
+        # Wysyłka maili (asynchronicznie)
         try:
-            # Zapis do bazy
-            contact_message = ContactMessage(
-                name=name,
-                email=email,
-                phone=phone,
-                topics=topics_str,
-                message=message,
-                sent_at=datetime.utcnow()
-            )
-            db.session.add(contact_message)
-            db.session.commit()
-            print("✅ Wiadomość zapisana")
-
-            # Wysyłka maila async
-            threading.Thread(target=send_contact_email, args=(contact_message.id,)).start()
-
-            flash("Dziękujemy za wiadomość! Odpowiemy wkrótce.", "success")
-            return redirect(url_for('kontakt'))
-
+            send_contact_email_async(contact_message)
         except Exception as e:
-            db.session.rollback()
-            print("❌ Błąd:", e)
-            flash("Wystąpił błąd podczas wysyłania wiadomości. Spróbuj ponownie.", "error")
-            return render_template('kontakt.html')
+            print(f"❌ Błąd wysyłania emaila: {e}")
 
-    return render_template('kontakt.html')
+        flash('Dziękujemy za wiadomość! Odpowiemy wkrótce.', 'success')
+        return redirect(url_for('contact_success', message_id=contact_message.id))
 
-
-
-
+    return render_template('kontakt.html', form=form)
 
 @app.route('/wiadomosc-wyslana/<int:message_id>')
 def contact_success(message_id):
