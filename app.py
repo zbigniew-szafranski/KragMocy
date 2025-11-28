@@ -518,17 +518,30 @@ def wydarzenia():
                            past_events=past)
 
 
-@app.route('/wydarzenie/<int:event_id>')
+@app.route('/wydarzenie/<int:event_id>', methods=['GET', 'POST'])
 def event_detail(event_id):
     event = Event.query.get_or_404(event_id)
     event.moon_phase = get_moon_phase(event.date)
     form = RegistrationForm()
-    print("✅ Rejestracja zapisana, renderuję stronę...")
 
-    return render_template('event_detail.html',
-                           title=event.title,
-                           event=event,
-                           form=form)
+    if form.validate_on_submit():
+        registration = Registration(
+            event_id=event.id,
+            name=form.name.data,
+            email=form.email.data,
+            phone=form.phone.data,
+            message=form.message.data
+        )
+        db.session.add(registration)
+        event.spots_taken += 1
+        db.session.commit()
+
+        send_registration_email(registration)
+
+        flash("Zapisano pomyślnie! Sprawdź email.", "success")
+        return redirect(url_for('event_detail', event_id=event.id))
+
+    return render_template('event_detail.html', event=event, form=form)
 
 @app.route('/wydarzenie/<int:event_id>/zapis', methods=['POST'])
 def register_for_event(event_id):
@@ -634,33 +647,27 @@ from datetime import datetime
 
 @app.route('/kontakt', methods=['GET', 'POST'])
 def kontakt():
-    form = ContactForm()  # Tworzymy instancję WTForms
+    form = ContactForm()
 
     if form.validate_on_submit():
-        # Tematy jako string
-        topics_str = ', '.join(form.topics.data) if form.topics.data else ''
-
-        # Zapis do bazy
-        contact_message = ContactMessage(
+        msg = ContactMessage(
             name=form.name.data,
             email=form.email.data,
             phone=form.phone.data,
-            topics=topics_str,
+            topics=", ".join(form.topics.data),
             message=form.message.data
         )
-        db.session.add(contact_message)
+        db.session.add(msg)
         db.session.commit()
 
-        # Wysyłka maili (asynchronicznie)
-        try:
-            send_contact_email_async(contact_message)
-        except Exception as e:
-            print(f"❌ Błąd wysyłania emaila: {e}")
+        # asynchroniczny email:
+        send_contact_email_async(msg.id)
 
-        flash('Dziękujemy za wiadomość! Odpowiemy wkrótce.', 'success')
-        return redirect(url_for('contact_success', message_id=contact_message.id))
+        flash("Wiadomość wysłana! Sprawdź email.", "success")
+        return redirect(url_for('kontakt'))
 
     return render_template('kontakt.html', form=form)
+
 
 @app.route('/wiadomosc-wyslana/<int:message_id>')
 def contact_success(message_id):
