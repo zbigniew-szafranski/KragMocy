@@ -5,7 +5,7 @@ logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 
 from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
-from flask_wtf import FlaskForm
+from flask_wtf import FlaskForm, CSRFProtect
 from flask_mail import Mail, Message
 from wtforms import StringField, TextAreaField, SubmitField, SelectMultipleField
 from wtforms.validators import DataRequired, Email, Length
@@ -14,8 +14,10 @@ import ephem
 from datetime import datetime
 import os
 import psycopg2
+from flask_wtf.csrf import CSRFProtect
 
 app = Flask(__name__)
+csrf = CSRFProtect(app)
 
 # Załaduj konfigurację
 database_url = os.environ.get('DATABASE_URL')
@@ -31,7 +33,10 @@ if database_url:
     app.config['SQLALCHEMY_DATABASE_URI'] = database_url
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     # app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'fallback-secret-key-change-this')
-    app.config['SECRET_KEY'] = os.getenv("SECRET_KEY")  # ważne!
+    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')  # Railway Variable!
+
+    if not app.config['SECRET_KEY']:
+        print("❌ BRAK SECRET_KEY – dodaj w Railway → Variables!")
     # app.config['MAIL_SERVER'] = 'smtp-relay.brevo.com'
     # app.config['MAIL_PORT'] = 587
     # app.config['MAIL_USE_TLS'] = True
@@ -540,10 +545,10 @@ def event_detail(event_id):
             message=form.message.data
         )
         db.session.add(registration)
-        event.spots_taken += 1
+        # event.spots_taken += 1
         db.session.commit()
 
-        send_registration_email(registration)
+        # send_registration_email(registration)
 
         flash("Zapisano pomyślnie! Sprawdź email.", "success")
         return redirect(url_for('event_detail', event_id=event.id))
