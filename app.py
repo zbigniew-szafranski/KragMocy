@@ -30,7 +30,8 @@ if database_url:
 
     app.config['SQLALCHEMY_DATABASE_URI'] = database_url
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'fallback-secret-key-change-this')
+    # app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'fallback-secret-key-change-this')
+    app.config['SECRET_KEY'] = os.getenv("SECRET_KEY")  # ważne!
     # app.config['MAIL_SERVER'] = 'smtp-relay.brevo.com'
     # app.config['MAIL_PORT'] = 587
     # app.config['MAIL_USE_TLS'] = True
@@ -523,6 +524,12 @@ def event_detail(event_id):
     event = Event.query.get_or_404(event_id)
     event.moon_phase = get_moon_phase(event.date)
     form = RegistrationForm()
+
+    # 👇 DODAJ TO — DIAGNOSTYKA FORMULARZA:
+    if request.method == "POST":
+        print("🔍 POST odebrany!")
+        print("validate_on_submit:", form.validate_on_submit())
+        print("errors:", form.errors)  # Bardzo ważne! pokaże co blokuje!!
 
     if form.validate_on_submit():
         registration = Registration(

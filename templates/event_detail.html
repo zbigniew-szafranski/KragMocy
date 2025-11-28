@@ -91,65 +91,54 @@
                             Brak wolnych miejsc na to wydarzenie.
                         </div>
                     {% else %}
-                            <form method="POST">
-                                {{ form.hidden_tag() }}  <!-- CSRF -->
+                        <form method="POST" action="{{ url_for('register_for_event', event_id=event.id) }}">
+                            {{ form.hidden_tag() }}
 
-                                {{ form.name.label }} {{ form.name }}
-                                {{ form.email.label }} {{ form.email }}
-                                {{ form.phone.label }} {{ form.phone }}
-                                {{ form.message.label }} {{ form.message }}
+                            <div class="mb-3">
+                                {{ form.name.label(class="form-label") }}
+                                {{ form.name(class="form-control" + (" is-invalid" if form.name.errors else "")) }}
+                                {% if form.name.errors %}
+                                    <div class="invalid-feedback">
+                                        {{ form.name.errors[0] }}
+                                    </div>
+                                {% endif %}
+                            </div>
 
-                                 {{ form.submit }}
-                            </form>
+                            <div class="mb-3">
+                                {{ form.email.label(class="form-label") }}
+                                {{ form.email(class="form-control" + (" is-invalid" if form.email.errors else ""), type="email") }}
+                                {% if form.email.errors %}
+                                    <div class="invalid-feedback">
+                                        {{ form.email.errors[0] }}
+                                    </div>
+                                {% endif %}
+                            </div>
 
-<!--                        <form method="POST" action="{{ url_for('register_for_event', event_id=event.id) }}">-->
-<!--                            {{ form.hidden_tag() }}-->
+                            <div class="mb-3">
+                                {{ form.phone.label(class="form-label") }}
+                                {{ form.phone(class="form-control" + (" is-invalid" if form.phone.errors else "")) }}
+                                {% if form.phone.errors %}
+                                    <div class="invalid-feedback">
+                                        {{ form.phone.errors[0] }}
+                                    </div>
+                                {% endif %}
+                            </div>
 
-<!--                            <div class="mb-3">-->
-<!--                                {{ form.name.label(class="form-label") }}-->
-<!--                                {{ form.name(class="form-control" + (" is-invalid" if form.name.errors else "")) }}-->
-<!--                                {% if form.name.errors %}-->
-<!--                                    <div class="invalid-feedback">-->
-<!--                                        {{ form.name.errors[0] }}-->
-<!--                                    </div>-->
-<!--                                {% endif %}-->
-<!--                            </div>-->
+                            <div class="mb-3">
+                                {{ form.message.label(class="form-label") }}
+                                {{ form.message(class="form-control" + (" is-invalid" if form.message.errors else ""), rows="3") }}
+                                {% if form.message.errors %}
+                                    <div class="invalid-feedback">
+                                        {{ form.message.errors[0] }}
+                                    </div>
+                                {% endif %}
+                                <small class="text-muted">
+                                    Możesz dodać pytania lub uwagi dotyczące wydarzenia
+                                </small>
+                            </div>
 
-<!--                            <div class="mb-3">-->
-<!--                                {{ form.email.label(class="form-label") }}-->
-<!--                                {{ form.email(class="form-control" + (" is-invalid" if form.email.errors else ""), type="email") }}-->
-<!--                                {% if form.email.errors %}-->
-<!--                                    <div class="invalid-feedback">-->
-<!--                                        {{ form.email.errors[0] }}-->
-<!--                                    </div>-->
-<!--                                {% endif %}-->
-<!--                            </div>-->
-
-<!--                            <div class="mb-3">-->
-<!--                                {{ form.phone.label(class="form-label") }}-->
-<!--                                {{ form.phone(class="form-control" + (" is-invalid" if form.phone.errors else "")) }}-->
-<!--                                {% if form.phone.errors %}-->
-<!--                                    <div class="invalid-feedback">-->
-<!--                                        {{ form.phone.errors[0] }}-->
-<!--                                    </div>-->
-<!--                                {% endif %}-->
-<!--                            </div>-->
-
-<!--                            <div class="mb-3">-->
-<!--                                {{ form.message.label(class="form-label") }}-->
-<!--                                {{ form.message(class="form-control" + (" is-invalid" if form.message.errors else ""), rows="3") }}-->
-<!--                                {% if form.message.errors %}-->
-<!--                                    <div class="invalid-feedback">-->
-<!--                                        {{ form.message.errors[0] }}-->
-<!--                                    </div>-->
-<!--                                {% endif %}-->
-<!--                                <small class="text-muted">-->
-<!--                                    Możesz dodać pytania lub uwagi dotyczące wydarzenia-->
-<!--                                </small>-->
-<!--                            </div>-->
-
-<!--                            {{ form.submit(class="btn btn-primary w-100") }}-->
-<!--                        </form>-->
+                            {{ form.submit(class="btn btn-primary w-100") }}
+                        </form>
                     {% endif %}
                 </div>
             </div>
