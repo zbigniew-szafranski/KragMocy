@@ -38,21 +38,9 @@ if database_url:
 
     if not app.config['SECRET_KEY']:
         print("❌ BRAK SECRET_KEY – dodaj w Railway → Variables!")
-    # app.config['MAIL_SERVER'] = 'smtp-relay.brevo.com'
-    # app.config['MAIL_PORT'] = 587
-    # app.config['MAIL_USE_TLS'] = True
-    # app.config['MAIL_USE_SSL'] = False
-    # app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
-    # app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
-    # app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER')
-    # app.config['MAIL_ADMIN'] = os.environ.get('MAIL_ADMIN')
-
-    app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp-relay.brevo.com')
-    app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
-    app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'True') == 'True'
-    app.config['MAIL_USE_SSL'] = os.environ.get('MAIL_USE_SSL', 'False') == 'True'
-    app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
-    app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
+    
+    # Brevo API
+    app.config['BREVO_API_KEY'] = os.environ.get('BREVO_API_KEY')
     app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER')
     app.config['MAIL_ADMIN'] = os.environ.get('MAIL_ADMIN')
 
@@ -64,6 +52,7 @@ if database_url:
 
     print(f"✅ PostgreSQL skonfigurowany")
     print(f"   Database: {database_url.split('@')[1] if '@' in database_url else 'hidden'}")
+    print(f"✅ Brevo API Key: {'Ustawiony' if app.config['BREVO_API_KEY'] else '❌ BRAK!'}")
 else:
     # LOKALNIE - config.py
     print("💻 Tryb lokalny - config.py")
@@ -91,12 +80,8 @@ else:
             'max_overflow': 0
         }
 
-        app.config['MAIL_SERVER'] = config.MAIL_SERVER
-        app.config['MAIL_PORT'] = config.MAIL_PORT
-        app.config['MAIL_USE_TLS'] = config.MAIL_USE_TLS
-        app.config['MAIL_USE_SSL'] = config.MAIL_USE_SSL
-        app.config['MAIL_USERNAME'] = config.MAIL_USERNAME
-        app.config['MAIL_PASSWORD'] = config.MAIL_PASSWORD
+        # Brevo API
+        app.config['BREVO_API_KEY'] = config.BREVO_API_KEY
         app.config['MAIL_DEFAULT_SENDER'] = config.MAIL_DEFAULT_SENDER
         app.config['MAIL_ADMIN'] = config.MAIL_ADMIN
 
@@ -549,56 +534,6 @@ Data wysłania: {contact_msg.sent_at}"""
 
 
 # Filtry Jinja2
-
-    topics_list = contact_msg.topics.split(', ') if contact_msg.topics else []
-    topics_formatted = ', '.join([topics_dict.get(t, t) for t in topics_list])
-
-    # Mail do klienta
-    try:
-        msg_client = Message(
-            subject='Potwierdzenie otrzymania wiadomości',
-            recipients=[contact_msg.email],
-            body=f"""Witaj {contact_msg.name},
-
-Dziękujemy za kontakt!
-
-Tematy: {topics_formatted or 'Nie wybrano'}
-
-Twoja wiadomość:
-{contact_msg.message}
-
-Pozdrawiamy,
-Zespół Kręgi Męskie"""
-        )
-        mail.send(msg_client)
-        print(f"✅ Email do klienta wysłany: {contact_msg.email}")
-    except Exception as e:
-        print(f"❌ Błąd wysyłania maila do klienta: {e}")
-
-    # Mail do admina
-    try:
-        msg_admin = Message(
-            subject=f"Nowa wiadomość od {contact_msg.name}",
-            recipients=[app.config['MAIL_ADMIN']],
-            body=f"""Nowa wiadomość kontaktowa!
-
-Od: {contact_msg.name}
-Email: {contact_msg.email}
-Telefon: {contact_msg.phone or 'Nie podano'}
-Tematy: {topics_formatted or 'Nie wybrano'}
-
-Wiadomość:
-{contact_msg.message}
-
-Data wysłania: {contact_msg.sent_at}"""
-        )
-        mail.send(msg_admin)
-        print("✅ Powiadomienie wysłane do admina")
-    except Exception as e:
-        print(f"❌ Błąd wysyłania maila do admina: {e}")
-
-
-# Filtry Jinja2
 @app.template_filter('polish_date')
 def polish_date_filter(date):
     return format_polish_date(date)
@@ -678,10 +613,15 @@ def event_detail(event_id):
             message=form.message.data
         )
         db.session.add(registration)
-        # event.spots_taken += 1
+        event.spots_taken += 1
         db.session.commit()
 
-        # send_registration_email(registration)
+        # Wysyłanie emaila
+        try:
+            send_registration_email(registration)
+            print("✅ Email wysłany pomyślnie")
+        except Exception as e:
+            print(f"⚠️ Błąd wysyłania emaila: {e}")
 
         flash("Zapisano pomyślnie! Sprawdź email.", "success")
         return redirect(url_for('event_detail', event_id=event.id))
