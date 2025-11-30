@@ -13,6 +13,7 @@ from wtforms.widgets import CheckboxInput, ListWidget
 import ephem
 from datetime import datetime
 import os
+import requests
 import psycopg2
 from flask_wtf.csrf import CSRFProtect
 
@@ -300,70 +301,45 @@ def truncate_text(text, length=100):
         return text
     return text[:length].rsplit(' ', 1)[0] + '...'
 
-import threading
-from app import app  # upewnij się, że to poprawna ścieżka
 
-import threading
-
-def send_contact_email_async(contact_message_id):
-    threading.Thread(target=send_contact_email, args=(contact_message_id,)).start()
-
-def send_contact_email_threadsafe(message_data):
-    with app.app_context():
-        print("📧 Wysyłam maila (async, detached)...")
-        try:
-            send_contact_email(message_data)
-            print("✅ Mail wysłany!")
-        except Exception as e:
-            print("❌ Błąd przy wysyłaniu maila:", e)
-
-from flask_mail import Message
-
-def send_contact_email(contact_id):
-    with app.app_context():  # <-- KLUCZOWE dla async
-        msg = ContactMessage.query.get(contact_id)
-        if not msg:
-            print("❌ Nie znaleziono wiadomości")
-            return
-
-        topics_dict = {
-            'olejki': 'Olejki eteryczne',
-            'woda': 'Woda wodorowa',
-            'joga': 'Joga',
-            'zielone': 'Zielona żywność',
-            'kregi': 'Kręgi męskie',
-            'inne': 'Inne'
-        }
-
-        topics_list = msg.topics.split(', ') if msg.topics else []
-        topics_formatted = ', '.join([topics_dict.get(t, t) for t in topics_list])
-
-        # Mail do klienta
-        try:
-            msg_client = Message(
-                subject='Potwierdzenie otrzymania wiadomości',
-                recipients=[msg.email],
-                body=f"Witaj {msg.name},\n\nDziękujemy za kontakt!\nTematy: {topics_formatted or 'Nie wybrano'}\nWiadomość: {msg.message}\n\nPozdrawiamy,\nZespół"
-            )
-            mail.send(msg_client)
-            print(f"✅ Email do klienta wysłany: {msg.email}")
-        except Exception as e:
-            print(f"❌ Błąd wysyłania maila do klienta: {e}")
-
-        # Mail do admina
-        try:
-            msg_admin = Message(
-                subject=f"Nowa wiadomość od {msg.name}",
-                recipients=[app.config['MAIL_ADMIN']],
-                body=f"Od: {msg.name}\nEmail: {msg.email}\nTelefon: {msg.phone or 'Nie podano'}\nTematy: {topics_formatted or 'Nie wybrano'}\nWiadomość:\n{msg.message}\nData: {msg.sent_at}"
-            )
-            mail.send(msg_admin)
-            print("✅ Powiadomienie wysłane do admina")
-        except Exception as e:
-            print(f"❌ Błąd wysyłania maila do admina: {e}")
-
-
-
+def send_email_brevo(to_email, to_name, subject, html_content, text_content=None):
+    """Wysyła email przez Brevo API"""
+    url = "https://api.brevo.com/v3/smtp/email"
+    
+    headers = {
+        "accept": "application/json",
+        "api-key": app.config['BREVO_API_KEY'],
+        "content-type": "application/json"
+    }
+    
+    payload = {
+        "sender": {
+            "name": "Kręgi Męskie",
+            "email": app.config['MAIL_DEFAULT_SENDER']
+        },
+        "to": [
+            {
+                "email": to_email,
+                "name": to_name
+            }
+        ],
+        "subject": subject,
+        "htmlContent": html_content
+    }
+    
+    if text_content:
+        payload["textContent"] = text_content
+    
+    try:
+        response = requests.post(url, json=payload, headers=headers)
+        response.raise_for_status()
+        print(f"✅ Email wysłany do {to_email} (Message ID: {response.json().get('messageId')})")
+        return True
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Błąd wysyłania emaila do {to_email}: {e}")
+        if hasattr(e.response, 'text'):
+            print(f"   Odpowiedź API: {e.response.text}")
+        return False
 
 
 def send_registration_email(registration):
@@ -372,68 +348,84 @@ def send_registration_email(registration):
     moon_phase = get_moon_phase(event.date)
 
     # Email do uczestnika
-    try:
-        html_body = f"""
-        <!DOCTYPE html>
-        <html lang="pl">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Potwierdzenie zapisu</title>
-        </head>
-        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-                <h1 style="color: #4CAF50; text-align: center;">✅ Potwierdzenie zapisu</h1>
+    html_body = f"""
+    <!DOCTYPE html>
+    <html lang="pl">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Potwierdzenie zapisu</title>
+    </head>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h1 style="color: #4CAF50; text-align: center;">✅ Potwierdzenie zapisu</h1>
 
-                <p>Witaj <strong>{registration.name}</strong>!</p>
+            <p>Witaj <strong>{registration.name}</strong>!</p>
 
-                <p>Dziękujemy za zapis na wydarzenie!</p>
+            <p>Dziękujemy za zapis na wydarzenie!</p>
 
-                <div style="background-color: #f5f5f5; padding: 20px; border-radius: 5px; margin: 20px 0;">
-                    <h2 style="color: #333; margin-top: 0;">🔥 {event.title}</h2>
-                    <p><strong>📅 Data:</strong> {format_polish_date(event.date)}</p>
-                    <p><strong>📍 Miejsce:</strong> {event.location}</p>
-                    <p><strong>⏱ Czas trwania:</strong> {event.duration}</p>
-                    <p><strong>🌙 Faza Księżyca:</strong> {moon_phase['emoji']} {moon_phase['name']}</p>
-                </div>
-
-                <div style="background-color: #e3f2fd; padding: 15px; border-left: 4px solid #2196F3; margin: 20px 0;">
-                    <h3 style="margin-top: 0;">Twoje dane:</h3>
-                    <p><strong>Imię i nazwisko:</strong> {registration.name}</p>
-                    <p><strong>Email:</strong> {registration.email}</p>
-                    {f"<p><strong>Telefon:</strong> {registration.phone}</p>" if registration.phone else ""}
-                </div>
-
-                <p style="text-align: center; margin-top: 30px;">
-                    W razie pytań skontaktuj się z nami.<br>
-                    Do zobaczenia!
-                </p>
-
-                <p style="text-align: center; color: #666; font-size: 12px; margin-top: 30px;">
-                    Zespół Kręgi Męskie<br>
-                    <em>Email wysłany automatycznie</em>
-                </p>
+            <div style="background-color: #f5f5f5; padding: 20px; border-radius: 5px; margin: 20px 0;">
+                <h2 style="color: #333; margin-top: 0;">🔥 {event.title}</h2>
+                <p><strong>📅 Data:</strong> {format_polish_date(event.date)}</p>
+                <p><strong>📍 Miejsce:</strong> {event.location}</p>
+                <p><strong>⏱ Czas trwania:</strong> {event.duration}</p>
+                <p><strong>🌙 Faza Księżyca:</strong> {moon_phase['emoji']} {moon_phase['name']}</p>
             </div>
-        </body>
-        </html>
-        """
 
-        msg_participant = Message(
-            subject=f'Potwierdzenie zapisu: {event.title}',
-            recipients=[registration.email],
-            html=html_body
-        )
-        mail.send(msg_participant)
-        print(f"✅ Email potwierdzający wysłany do uczestnika: {registration.email}")
-    except Exception as e:
-        print(f"❌ Błąd wysyłania emaila do uczestnika: {e}")
+            <div style="background-color: #e3f2fd; padding: 15px; border-left: 4px solid #2196F3; margin: 20px 0;">
+                <h3 style="margin-top: 0;">Twoje dane:</h3>
+                <p><strong>Imię i nazwisko:</strong> {registration.name}</p>
+                <p><strong>Email:</strong> {registration.email}</p>
+                {f"<p><strong>Telefon:</strong> {registration.phone}</p>" if registration.phone else ""}
+            </div>
+
+            <p style="text-align: center; margin-top: 30px;">
+                W razie pytań skontaktuj się z nami.<br>
+                Do zobaczenia!
+            </p>
+
+            <p style="text-align: center; color: #666; font-size: 12px; margin-top: 30px;">
+                Zespół Kręgi Męskie<br>
+                <em>Email wysłany automatycznie</em>
+            </p>
+        </div>
+    </body>
+    </html>
+    """
+
+    text_body = f"""
+Witaj {registration.name}!
+
+Dziękujemy za zapis na wydarzenie!
+
+WYDARZENIE:
+{event.title}
+Data: {format_polish_date(event.date)}
+Miejsce: {event.location}
+Czas trwania: {event.duration}
+Faza Księżyca: {moon_phase['emoji']} {moon_phase['name']}
+
+TWOJE DANE:
+Imię i nazwisko: {registration.name}
+Email: {registration.email}
+{f"Telefon: {registration.phone}" if registration.phone else ""}
+
+W razie pytań skontaktuj się z nami.
+Do zobaczenia!
+
+Zespół Kręgi Męskie
+    """
+
+    send_email_brevo(
+        to_email=registration.email,
+        to_name=registration.name,
+        subject=f'Potwierdzenie zapisu: {event.title}',
+        html_content=html_body,
+        text_content=text_body
+    )
 
     # Email do admina
-    try:
-        msg_admin = Message(
-            subject=f'Nowy zapis na wydarzenie: {event.title}',
-            recipients=[app.config['MAIL_ADMIN']],
-            body=f"""Nowy uczestnik zapisał się na wydarzenie!
+    admin_body = f"""Nowy uczestnik zapisał się na wydarzenie!
 
 📅 WYDARZENIE:
 ━━━━━━━━━━━━━━━━━━━━━━
@@ -458,11 +450,152 @@ Wolne miejsca: {event.spots_available}
 ---
 Data zapisu: {registration.registered_at.strftime('%d.%m.%Y %H:%M')}
 """
+
+    send_email_brevo(
+        to_email=app.config['MAIL_ADMIN'],
+        to_name="Admin",
+        subject=f'Nowy zapis na wydarzenie: {event.title}',
+        html_content=f"<pre>{admin_body}</pre>",
+        text_content=admin_body
+    )
+
+
+def send_contact_email(contact_message_id):
+    """Wysyła email z potwierdzeniem kontaktu"""
+    contact_msg = ContactMessage.query.get(contact_message_id)
+    if not contact_msg:
+        print("❌ Nie znaleziono wiadomości")
+        return
+
+    topics_dict = {
+        'olejki': 'Olejki eteryczne',
+        'woda': 'Woda wodorowa',
+        'joga': 'Joga',
+        'zielone': 'Zielona żywność',
+        'kregi': 'Kręgi męskie',
+        'inne': 'Inne'
+    }
+
+    topics_list = contact_msg.topics.split(', ') if contact_msg.topics else []
+    topics_formatted = ', '.join([topics_dict.get(t, t) for t in topics_list])
+
+    # Mail do klienta
+    client_html = f"""
+    <!DOCTYPE html>
+    <html lang="pl">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h1 style="color: #4CAF50;">Potwierdzenie otrzymania wiadomości</h1>
+            <p>Witaj <strong>{contact_msg.name}</strong>,</p>
+            <p>Dziękujemy za kontakt! Twoja wiadomość została otrzymana.</p>
+            <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                <p><strong>Wybrane tematy:</strong> {topics_formatted or 'Nie wybrano'}</p>
+                <p><strong>Twoja wiadomość:</strong></p>
+                <p style="white-space: pre-wrap;">{contact_msg.message}</p>
+            </div>
+            <p>Odpowiemy najszybciej jak to możliwe.</p>
+            <p style="color: #666; font-size: 12px; margin-top: 30px;">
+                Pozdrawiamy,<br>Zespół Kręgi Męskie
+            </p>
+        </div>
+    </body>
+    </html>
+    """
+
+    client_text = f"""Witaj {contact_msg.name},
+
+Dziękujemy za kontakt!
+
+Tematy: {topics_formatted or 'Nie wybrano'}
+
+Twoja wiadomość:
+{contact_msg.message}
+
+Pozdrawiamy,
+Zespół Kręgi Męskie"""
+
+    send_email_brevo(
+        to_email=contact_msg.email,
+        to_name=contact_msg.name,
+        subject='Potwierdzenie otrzymania wiadomości',
+        html_content=client_html,
+        text_content=client_text
+    )
+
+    # Mail do admina
+    admin_text = f"""Nowa wiadomość kontaktowa!
+
+Od: {contact_msg.name}
+Email: {contact_msg.email}
+Telefon: {contact_msg.phone or 'Nie podano'}
+Tematy: {topics_formatted or 'Nie wybrano'}
+
+Wiadomość:
+{contact_msg.message}
+
+Data wysłania: {contact_msg.sent_at}"""
+
+    send_email_brevo(
+        to_email=app.config['MAIL_ADMIN'],
+        to_name="Admin",
+        subject=f"Nowa wiadomość od {contact_msg.name}",
+        html_content=f"<pre>{admin_text}</pre>",
+        text_content=admin_text
+    )
+
+
+# Filtry Jinja2
+
+    topics_list = contact_msg.topics.split(', ') if contact_msg.topics else []
+    topics_formatted = ', '.join([topics_dict.get(t, t) for t in topics_list])
+
+    # Mail do klienta
+    try:
+        msg_client = Message(
+            subject='Potwierdzenie otrzymania wiadomości',
+            recipients=[contact_msg.email],
+            body=f"""Witaj {contact_msg.name},
+
+Dziękujemy za kontakt!
+
+Tematy: {topics_formatted or 'Nie wybrano'}
+
+Twoja wiadomość:
+{contact_msg.message}
+
+Pozdrawiamy,
+Zespół Kręgi Męskie"""
+        )
+        mail.send(msg_client)
+        print(f"✅ Email do klienta wysłany: {contact_msg.email}")
+    except Exception as e:
+        print(f"❌ Błąd wysyłania maila do klienta: {e}")
+
+    # Mail do admina
+    try:
+        msg_admin = Message(
+            subject=f"Nowa wiadomość od {contact_msg.name}",
+            recipients=[app.config['MAIL_ADMIN']],
+            body=f"""Nowa wiadomość kontaktowa!
+
+Od: {contact_msg.name}
+Email: {contact_msg.email}
+Telefon: {contact_msg.phone or 'Nie podano'}
+Tematy: {topics_formatted or 'Nie wybrano'}
+
+Wiadomość:
+{contact_msg.message}
+
+Data wysłania: {contact_msg.sent_at}"""
         )
         mail.send(msg_admin)
-        print(f"✅ Powiadomienie o zapisie wysłane do admina")
+        print("✅ Powiadomienie wysłane do admina")
     except Exception as e:
-        print(f"❌ Błąd wysyłania emaila do admina: {e}")
+        print(f"❌ Błąd wysyłania maila do admina: {e}")
 
 
 # Filtry Jinja2
@@ -599,6 +732,7 @@ def register_for_event(event_id):
 
                 try:
                     send_registration_email(registration)
+                    print("✅ Email wysłany pomyślnie")
                 except Exception as e:
                     print(f"⚠️ Błąd wysyłania emaila: {e}")
 
@@ -654,7 +788,6 @@ def zielone():
 
 
 from flask import request, flash, redirect, url_for, render_template
-import threading
 from datetime import datetime
 
 @app.route('/kontakt', methods=['GET', 'POST'])
@@ -672,10 +805,14 @@ def kontakt():
         db.session.add(msg)
         db.session.commit()
 
-        # asynchroniczny email:
-        send_contact_email_async(msg.id)
-
-        flash("Wiadomość wysłana! Sprawdź email.", "success")
+        # Wysyłanie emaila synchronicznie
+        try:
+            send_contact_email(msg.id)
+            flash("Wiadomość wysłana! Sprawdź email.", "success")
+        except Exception as e:
+            print(f"❌ Błąd wysyłania emaila: {e}")
+            flash("Wiadomość zapisana, ale wystąpił problem z wysłaniem emaila.", "warning")
+        
         return redirect(url_for('kontakt'))
 
     return render_template('kontakt.html', form=form)
