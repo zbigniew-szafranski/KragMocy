@@ -48,6 +48,9 @@ if database_url:
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
         'pool_pre_ping': True,
         'pool_recycle': 300,
+        'pool_sizre': 5,
+        'max_overflow': 10,
+        'echo': False,
     }
 
     print(f"✅ PostgreSQL skonfigurowany")
@@ -560,6 +563,9 @@ def safe_html_filter(text):
 # Routes
 @app.route('/')
 def index():
+
+    db.session.expire_all()
+
     upcoming_events = Event.query.filter(Event.date > datetime.now()).order_by(Event.date).all()
     next_event = upcoming_events[0] if upcoming_events else None
 
@@ -588,6 +594,7 @@ def wydarzenia():
 
     for event in upcoming + past:
         event.moon_phase = get_moon_phase(event.date)
+        db.session.refresh(event)
 
     return render_template('wydarzenia.html',
                            title='Wydarzenia',
@@ -598,6 +605,9 @@ def wydarzenia():
 @app.route('/wydarzenie/<int:event_id>', methods=['GET', 'POST'])
 def event_detail(event_id):
     event = Event.query.get_or_404(event_id)
+
+    db.session.refresh(event)
+
     event.moon_phase = get_moon_phase(event.date)
     form = RegistrationForm()
 
