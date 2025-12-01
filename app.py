@@ -580,6 +580,9 @@ def index():
 @app.route('/wydarzenia')
 def wydarzenia():
     now = datetime.now()
+
+    db.session.expire_all()
+
     upcoming = Event.query.filter(Event.date > now).order_by(Event.date).all()
     past = Event.query.filter(Event.date <= now).order_by(Event.date.desc()).all()
 
