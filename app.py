@@ -564,7 +564,7 @@ def safe_html_filter(text):
 @app.route('/')
 def index():
 
-    db.session.expire_all()
+    db.session.close()
 
     upcoming_events = Event.query.filter(Event.date > datetime.now()).order_by(Event.date).all()
     next_event = upcoming_events[0] if upcoming_events else None
@@ -587,14 +587,15 @@ def index():
 def wydarzenia():
     now = datetime.now()
 
-    db.session.expire_all()
+    db.session.close()
+
 
     upcoming = Event.query.filter(Event.date > now).order_by(Event.date).all()
     past = Event.query.filter(Event.date <= now).order_by(Event.date.desc()).all()
 
     for event in upcoming + past:
         event.moon_phase = get_moon_phase(event.date)
-        db.session.refresh(event)
+        print(f"🔍 Event: {event.title} | spots_taken: {event.spots_taken} | spots_total: {event.spots_total}")
 
     return render_template('wydarzenia.html',
                            title='Wydarzenia',
@@ -604,9 +605,10 @@ def wydarzenia():
 
 @app.route('/wydarzenie/<int:event_id>', methods=['GET', 'POST'])
 def event_detail(event_id):
-    event = Event.query.get_or_404(event_id)
 
-    db.session.refresh(event)
+    db.session.close()
+
+    event = Event.query.get_or_404(event_id)
 
     event.moon_phase = get_moon_phase(event.date)
     form = RegistrationForm()
@@ -777,6 +779,39 @@ def contact_success(message_id):
     return render_template('contact_success.html',
                            title='Wiadomość wysłana',
                            message=message)
+
+
+# 🔍 DIAGNOSTYKA - sprawdź co jest w bazie
+@app.route('/admin/debug-events')
+def debug_events():
+    db.session.close()  # Zamknij starą sesję
+    events = Event.query.all()
+
+    output = "<h1>🔍 Diagnostyka - Stan bazy danych</h1>"
+    output += "<style>body{font-family:Arial;padding:20px;}table{border-collapse:collapse;width:100%;margin:20px 0;}th,td{border:1px solid #ddd;padding:12px;text-align:left;}th{background-color:#4CAF50;color:white;}tr:nth-child(even){background-color:#f2f2f2;}</style>"
+    output += f"<p><strong>⏰ Czas sprawdzenia:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>"
+    output += f"<p><strong>🔗 Połączenie z:</strong> {app.config['SQLALCHEMY_DATABASE_URI'].split('@')[1] if '@' in app.config['SQLALCHEMY_DATABASE_URI'] else 'SQLite'}</p>"
+
+    output += "<table><tr><th>ID</th><th>Tytuł</th><th>spots_taken (BAZA)</th><th>spots_total</th><th>spots_available</th><th>is_full</th><th>Data</th></tr>"
+
+    for event in events:
+        color = "red" if event.is_full else "green"
+        output += f"<tr><td>{event.id}</td><td>{event.title}</td><td style='background-color:{color};color:white;font-weight:bold;'>{event.spots_taken}</td><td>{event.spots_total}</td><td>{event.spots_available}</td><td>{'✅ TAK' if event.is_full else '❌ NIE'}</td><td>{event.date.strftime('%Y-%m-%d %H:%M')}</td></tr>"
+
+    output += "</table>"
+
+    # Pokaż też rejestracje
+    output += "<h2>📋 Wszystkie rejestracje</h2>"
+    registrations = Registration.query.all()
+    output += f"<p><strong>Łącznie rejestracji:</strong> {len(registrations)}</p>"
+    output += "<table><tr><th>ID</th><th>Wydarzenie</th><th>Imię</th><th>Email</th><th>Data zapisu</th></tr>"
+
+    for reg in registrations:
+        output += f"<tr><td>{reg.id}</td><td>{reg.event.title}</td><td>{reg.name}</td><td>{reg.email}</td><td>{reg.registered_at.strftime('%Y-%m-%d %H:%M')}</td></tr>"
+
+    output += "</table>"
+
+    return output
 
 
 if __name__ == '__main__':
