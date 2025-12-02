@@ -16,6 +16,7 @@ import os
 import requests
 import psycopg2
 from flask_wtf.csrf import CSRFProtect
+from markupsafe import Markup, escape
 
 app = Flask(__name__)
 csrf = CSRFProtect(app)
@@ -812,6 +813,12 @@ def debug_events():
     output += "</table>"
 
     return output
+
+@app.template_filter('nl2br')
+def nl2br(s):
+    if not s:
+        return ""
+    return Markup("<br>".join(escape(s).split("\n")))
 
 
 if __name__ == '__main__':
