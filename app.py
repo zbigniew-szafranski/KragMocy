@@ -302,7 +302,7 @@ def send_email_brevo(to_email, to_name, subject, html_content, text_content=None
     
     payload = {
         "sender": {
-            "name": "Kręgi Męskie",
+            "name": "Moc Pięciu Żywiołów",
             "email": app.config['MAIL_DEFAULT_SENDER']
         },
         "to": [
@@ -373,7 +373,7 @@ def send_registration_email(registration):
             </p>
 
             <p style="text-align: center; color: #666; font-size: 12px; margin-top: 30px;">
-                Zespół Kręgi Męskie<br>
+                Zespół Moc Pięciu Żywiołów<br>
                 <em>Email wysłany automatycznie</em>
             </p>
         </div>
@@ -401,7 +401,7 @@ Email: {registration.email}
 W razie pytań skontaktuj się z nami.
 Do zobaczenia!
 
-Zespół Kręgi Męskie
+Zespół Moc Pięciu Żywiołów
     """
 
     send_email_brevo(
@@ -504,7 +504,7 @@ Twoja wiadomość:
 {contact_msg.message}
 
 Pozdrawiamy,
-Zespół Kręgi Męskie"""
+Zespół Moc Pięciu Żywiołów"""
 
     send_email_brevo(
         to_email=contact_msg.email,
