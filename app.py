@@ -814,25 +814,32 @@ def debug_events():
 
     return output
 
+
 @app.template_filter('nl2br_fix')
 def nl2br_fix(s):
     if not s:
         return ""
-    # 1) zamienia literalne "\n" na prawdziwe nowe linie
+
+    # 1) zamienia literalne "\n" (dwa znaki) na prawdziwe nowe linie
     fixed = s.replace("\\n", "\n")
 
-    # 2) rozbija na akapity (puste linie)
-    paragraphs = fixed.split('\n\n')
+    # 2) rozbija na akapity (podwójne nowe linie lub więcej)
+    import re
+    # dzieli po 2 lub więcej znakach nowej linii
+    paragraphs = re.split(r'\n\s*\n', fixed)
 
     # 3) dla każdego akapitu zamienia pojedyncze \n na <br>
     formatted_paragraphs = []
     for para in paragraphs:
-        if para.strip():  # pomijamy puste akapity
-            # zamień pojedyncze nowe linie na <br>
-            formatted = "<br>".join(escape(para).split("\n"))
+        para = para.strip()
+        if para:  # pomijamy puste akapity
+            # escape HTML i zamień pojedyncze nowe linie na <br>
+            lines = para.split('\n')
+            escaped_lines = [escape(line) for line in lines]
+            formatted = "<br>\n".join(escaped_lines)
             formatted_paragraphs.append(f"<p>{formatted}</p>")
 
-    return Markup("".join(formatted_paragraphs))
+    return Markup("\n".join(formatted_paragraphs))
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
