@@ -820,6 +820,16 @@ def nl2br(s):
         return ""
     return Markup("<br>".join(escape(s).split("\n")))
 
+@app.template_filter('nl2br_fix')
+def nl2br_fix(s):
+    if not s:
+        return ""
+    # 1) zamienia literalne "\n" na prawdziwe nowe linie
+    fixed = s.replace("\\n", "\n")
+    # 2) zamienia nowe linie na <br>
+    return Markup("<br>".join(escape(fixed).split("\n")))
+
+
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
