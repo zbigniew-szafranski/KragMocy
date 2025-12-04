@@ -815,14 +815,17 @@ def debug_events():
     return output
 
 
-@app.template_filter('nl2br_fix')
-def nl2br_fix(s):
-    if not s:
+@app.template_filter('nl2br_simple')
+def nl2br_simple(text):
+    """Prosta zamiana \n na <br>"""
+    if not text:
         return ""
-
-    # Zamień nowe linie na <br>
-    formatted = s.replace('\n', '<br>')
-    return Markup(formatted)
+    # Zamień podwójne nowe linie na akapity
+    text = text.replace('\n\n', '</p><p>')
+    # Zamień pojedyncze nowe linie na <br>
+    text = text.replace('\n', '<br>')
+    # Owiń w akapit
+    return Markup(f'<p>{text}</p>')
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
