@@ -611,6 +611,10 @@ def event_detail(event_id):
 
     event = Event.query.get_or_404(event_id)
 
+    # 🔧 DEBUG - sprawdź co jest w event.description
+    print(f"🔧 ROUTE - Event.description zawiera \\n? {chr(10) in event.description}")
+    print(f"🔧 ROUTE - Pierwsze 100 znaków: {repr(event.description[:100])}")
+
     event.moon_phase = get_moon_phase(event.date)
     form = RegistrationForm()
 
