@@ -818,16 +818,21 @@ def debug_events():
 @app.template_filter('nl2br_simple')
 def nl2br_simple(text):
     """Prosta zamiana \n na <br>"""
-    print(f"🔧 FILTR WYWOŁANY! Tekst: {repr(text[:50])}...")  # DEBUG
+    print(f"🔧 FILTR - Długość tekstu: {len(text)}")
+    print(f"🔧 FILTR - Pierwsze 100 znaków: {repr(text[:100])}")
+    print(f"🔧 FILTR - Zawiera \\n? {chr(10) in text}")
+
     if not text:
         return ""
+
     # Zamień podwójne nowe linie na akapity
     text = text.replace('\n\n', '</p><p>')
     # Zamień pojedyncze nowe linie na <br>
     text = text.replace('\n', '<br>')
     # Owiń w akapit
     result = f'<p>{text}</p>'
-    print(f"🔧 FILTR WYNIK: {repr(result[:100])}...")  # DEBUG
+
+    print(f"🔧 FILTR - Po konwersji (pierwsze 200): {repr(result[:200])}")
     return Markup(result)
 
 if __name__ == '__main__':
