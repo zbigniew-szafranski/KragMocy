@@ -69,10 +69,6 @@
                 <div class="card-body">
                     <h5 class="card-title">Opis</h5>
                     <p class="card-text">{{ event.description | nl2br_simple | safe }}</p>
-                    <!-- DEBUG: -->
-                    <pre style="background: #f0f0f0; padding: 10px; font-size: 12px;">
-                        RAW: {{ event.description | truncate(100) }}
-                    </pre>
                 </div>
             </div>
         </div>
