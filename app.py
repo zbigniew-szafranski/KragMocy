@@ -818,6 +818,7 @@ def debug_events():
 @app.template_filter('nl2br_simple')
 def nl2br_simple(text):
     """Prosta zamiana \n na <br>"""
+    print(f"🔧 FILTR WYWOŁANY! Tekst: {repr(text[:50])}...")  # DEBUG
     if not text:
         return ""
     # Zamień podwójne nowe linie na akapity
@@ -825,7 +826,9 @@ def nl2br_simple(text):
     # Zamień pojedyncze nowe linie na <br>
     text = text.replace('\n', '<br>')
     # Owiń w akapit
-    return Markup(f'<p>{text}</p>')
+    result = f'<p>{text}</p>'
+    print(f"🔧 FILTR WYNIK: {repr(result[:100])}...")  # DEBUG
+    return Markup(result)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
