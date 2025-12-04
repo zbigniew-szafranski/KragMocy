@@ -609,7 +609,15 @@ def event_detail(event_id):
 
     db.session.close()
 
+    # 🔧 SPRAWDŹ SUROWE DANE Z BAZY (przed ORM)
+    result = db.session.execute(db.text("SELECT description FROM event WHERE id = :id"), {"id": event_id})
+    raw_description = result.fetchone()[0]
+    print(f"🔧 SUROWA BAZA - zawiera \\n? {chr(10) in raw_description}")
+    print(f"🔧 SUROWA BAZA - pierwsze 100: {repr(raw_description[:100])}")
+
     event = Event.query.get_or_404(event_id)
+    print(f"🔧 ORM - Event.description zawiera \\n? {chr(10) in event.description}")
+    print(f"🔧 ORM - Pierwsze 100 znaków: {repr(event.description[:100])}")
 
     # 🔧 DEBUG - sprawdź co jest w event.description
     print(f"🔧 ROUTE - Event.description zawiera \\n? {chr(10) in event.description}")
